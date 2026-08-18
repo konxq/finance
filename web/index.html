@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+  <title>Финансы</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.9/dist/chart.umd.min.js"></script>
+  <style>
+    :root { --bg: var(--tg-theme-bg-color,#101014); --card: var(--tg-theme-secondary-bg-color,#1c1c22); --text: var(--tg-theme-text-color,#fff); --hint: var(--tg-theme-hint-color,#9da0a8); --accent: var(--tg-theme-button-color,#7c5cff); --green:#35c759; --red:#ff453a; }
+    *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display",Arial,sans-serif;padding:18px 14px 30px}
+    .top{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}.title{font-size:27px;font-weight:800}.subtitle{color:var(--hint);font-size:13px;margin-top:2px}
+    select{background:var(--card);border:0;color:var(--text);border-radius:12px;padding:10px 12px;font-size:14px}
+    .hero{background:linear-gradient(135deg,#6d4aff,#a05cff);border-radius:24px;padding:20px;margin-bottom:14px;box-shadow:0 12px 35px rgba(100,70,255,.2)}
+    .hero small{opacity:.8}.hero .big{font-size:35px;font-weight:850;margin:6px 0 14px}.stats{display:grid;grid-template-columns:1fr 1fr;gap:10px}.stat{background:rgba(255,255,255,.12);padding:11px;border-radius:15px}.stat b{display:block;font-size:17px;margin-top:3px}.green{color:var(--green)}.red{color:var(--red)}
+    .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.card{background:var(--card);border-radius:20px;padding:16px;margin-bottom:12px}.card h3{margin:0 0 12px;font-size:17px}.chart-wrap{height:230px;position:relative}.chart-wrap.small{height:220px}
+    .row{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid rgba(128,128,128,.13)}.row:last-child{border-bottom:0}.muted{color:var(--hint)}.amount{font-weight:700}.pill{font-size:12px;color:var(--hint);background:rgba(128,128,128,.12);padding:5px 8px;border-radius:9px}
+    .loading{text-align:center;color:var(--hint);padding:50px 0}.error{background:rgba(255,69,58,.12);padding:15px;border-radius:15px;color:#ff7b73}.refresh{border:0;background:var(--card);color:var(--text);padding:10px 13px;border-radius:12px;font-size:14px}
+    @media(max-width:520px){.grid{grid-template-columns:1fr}.hero .big{font-size:31px}}
+  </style>
+</head>
+<body>
+  <div class="top"><div><div class="title">💰 Финансы</div><div class="subtitle" id="userLine">Личная аналитика</div></div><select id="period"><option value="day">День</option><option value="week">Неделя</option><option value="month" selected>Месяц</option><option value="year">Год</option><option value="all">Всё время</option></select></div>
+  <div id="app"><div class="loading">Загружаю статистику…</div></div>
+<script>
+const tg = window.Telegram?.WebApp;
+if (tg) { tg.ready(); tg.expand(); }
+let incomeChart, expenseChart;
+const money = n => new Intl.NumberFormat('ru-RU',{minimumFractionDigits:2,maximumFractionDigits:2}).format(n) + ' zł';
+const esc = s => String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
+async function load(){
+  const period=document.getElementById('period').value;
+  const headers={'X-Telegram-Init-Data':tg?.initData||''};
+  try{
+    const r=await fetch('/api/dashboard?period='+period,{headers});
+    if(!r.ok) throw new Error(r.status===401?'Открой Mini App из Telegram, а не обычной вкладкой.':'Не удалось получить данные');
+    const d=await r.json(); render(d);
+  }catch(e){document.getElementById('app').innerHTML='<div class="error">⚠️ '+esc(e.message)+'</div>';}
+}
+function render(d){
+ const save=d.net;
+ document.getElementById('app').innerHTML=`
+  <section class="hero"><small>Баланс за выбранный период</small><div class="big">${money(save)}</div><div class="stats"><div class="stat">Доходы<b>${money(d.income)}</b></div><div class="stat">Расходы<b>${money(d.expenses)}</b></div></div></section>
+  <div class="card"><h3>📈 Доходы и расходы по дням</h3><div class="chart-wrap"><canvas id="daily"></canvas></div></div>
+  <div class="grid"><div class="card"><h3>💰 Доходы</h3><div class="chart-wrap small"><canvas id="income"></canvas></div><div id="incomeList"></div></div><div class="card"><h3>💸 Расходы</h3><div class="chart-wrap small"><canvas id="expense"></canvas></div><div id="expenseList"></div></div></div>
+  <div class="card"><h3>🧾 Последние операции</h3><div id="recent"></div></div>`;
+ drawDaily(d.daily); drawIncome(d.income_by_source); drawExpense(d.expenses_by_category);
+ document.getElementById('recent').innerHTML=d.recent.length?d.recent.map(x=>`<div class="row"><div><b>${esc(x.label)}</b><div class="muted">${esc(x.date)}${x.note?' · '+esc(x.note):''}</div></div><div class="amount ${x.kind==='income'?'green':'red'}">${x.kind==='income'?'+':'−'}${money(x.amount)}</div></div>`).join(''):'<div class="muted">Пока нет операций</div>';
+}
+function drawDaily(rows){
+ const ctx=document.getElementById('daily');
+ new Chart(ctx,{type:'line',data:{labels:rows.map(x=>x.date.slice(5)),datasets:[{label:'Доходы',data:rows.map(x=>x.income),tension:.35},{label:'Расходы',data:rows.map(x=>x.expenses),tension:.35}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:getComputedStyle(document.body).color}}},scales:{x:{ticks:{color:'#999'}},y:{ticks:{color:'#999'}}}}});
+}
+function drawIncome(rows){
+ const ctx=document.getElementById('income'); window._inc?.destroy(); window._inc=new Chart(ctx,{type:'doughnut',data:{labels:rows.map(x=>x.label),datasets:[{data:rows.map(x=>x.value)}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{color:getComputedStyle(document.body).color}}}}});
+ document.getElementById('incomeList').innerHTML=rows.map(x=>`<div class="row"><span>${esc(x.label)}</span><b>${money(x.value)}</b></div>`).join('')||'<div class="muted">Нет доходов</div>';
+}
+function drawExpense(rows){
+ const ctx=document.getElementById('expense'); window._exp?.destroy(); window._exp=new Chart(ctx,{type:'doughnut',data:{labels:rows.map(x=>x.label),datasets:[{data:rows.map(x=>x.value)}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{color:getComputedStyle(document.body).color}}}}});
+ document.getElementById('expenseList').innerHTML=rows.map(x=>`<div class="row"><span>${esc(x.label)}</span><b>${money(x.value)}</b></div>`).join('')||'<div class="muted">Нет расходов</div>';
+}
+document.getElementById('period').addEventListener('change',load); load();
+</script>
+</body>
+</html>
