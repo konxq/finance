@@ -1,7 +1,6 @@
 import os
 import sqlite3
 import logging
-import asyncio
 import hashlib
 import hmac
 import json
@@ -13,8 +12,6 @@ from telegram import (
     Update,
     InlineKeyboardButton,
     InlineKeyboardMarkup,
-    ReplyKeyboardMarkup,
-    ReplyKeyboardRemove,
     KeyboardButton,
     WebAppInfo,
 )
@@ -28,23 +25,21 @@ from telegram.ext import (
     filters,
 )
 
-
 logging.basicConfig(
     level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 
 logger = logging.getLogger(__name__)
-
 
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
 DB_PATH = os.environ.get("DB_PATH", "finances.db")
 WEBAPP_URL = os.environ.get("WEBAPP_URL", "")
 
 
-# ============================================================
-# CATEGORIES
-# ============================================================
+# =========================================================
+# КАТЕГОРИИ
+# =========================================================
 
 EXPENSE_CATEGORIES = {
     "food": "🍎 Еда",
@@ -55,16 +50,15 @@ EXPENSE_CATEGORIES = {
     "other": "🛍 Прочее",
 }
 
-
 INCOME_SOURCES = {
     "uber": "🛵 Uber",
     "stroika": "🏗 Стройка",
 }
 
 
-# ============================================================
-# CONVERSATION STATES
-# ============================================================
+# =========================================================
+# СОСТОЯНИЯ ДИАЛОГОВ
+# =========================================================
 
 (
     EXP_CATEGORY,
@@ -82,9 +76,9 @@ INCOME_SOURCES = {
 ) = range(11)
 
 
-# ============================================================
+# =========================================================
 # DATABASE
-# ============================================================
+# =========================================================
 
 def db():
     conn = sqlite3.connect(DB_PATH)
@@ -136,147 +130,181 @@ def fmt(n):
     )
 
 
-def period_bounds(period: str):
+# =========================================================
+# ПЕРИОДЫ
+# =========================================================
 
+def period_bounds(period: str):
     now = datetime.now()
 
     if period == "day":
-
         start = now.replace(
             hour=0,
             minute=0,
             second=0,
-            microsecond=0,
+            microsecond=0
         )
-
         end = start + timedelta(days=1)
 
     elif period == "week":
-
         start = (
             now - timedelta(days=now.weekday())
         ).replace(
             hour=0,
             minute=0,
             second=0,
-            microsecond=0,
+            microsecond=0
         )
-
         end = start + timedelta(days=7)
 
     elif period == "month":
-
         start = now.replace(
             day=1,
             hour=0,
             minute=0,
             second=0,
-            microsecond=0,
+            microsecond=0
         )
 
         if start.month == 12:
-
             end = start.replace(
                 year=start.year + 1,
-                month=1,
+                month=1
             )
-
         else:
-
             end = start.replace(
                 month=start.month + 1
             )
 
     elif period == "year":
-
         start = now.replace(
             month=1,
             day=1,
             hour=0,
             minute=0,
             second=0,
-            microsecond=0,
+            microsecond=0
         )
-
-        end = start.replace(
-            year=start.year + 1
-        )
+        end = start.replace(year=start.year + 1)
 
     else:
-
         start = datetime(2000, 1, 1)
         end = datetime(2100, 1, 1)
 
     return (
         start.strftime("%Y-%m-%d"),
-        end.strftime("%Y-%m-%d"),
+        end.strftime("%Y-%m-%d")
     )
 
 
-# ============================================================
-# MAIN MENU
-# ============================================================
+PERIOD_LABELS = {
+    "day": "день",
+    "week": "неделю",
+    "month": "месяц",
+    "year": "год",
+    "all": "всё время",
+}
 
-def main_menu_keyboard():
 
+# =========================================================
+# ГЛАВНОЕ МЕНЮ
+# =========================================================
+
+def main_menu():
     rows = [
-        ["➕ Расход", "➕ Доход"],
-        ["📊 Баланс", "🗒 Последние записи"],
-        ["🗑 Удалить запись"],
+        [
+            InlineKeyboardButton(
+                "➕ Расход",
+                callback_data="menu:expense"
+            ),
+            InlineKeyboardButton(
+                "➕ Доход",
+                callback_data="menu:income"
+            ),
+        ],
+        [
+            InlineKeyboardButton(
+                "📊 Баланс",
+                callback_data="menu:balance"
+            ),
+            InlineKeyboardButton(
+                "🗒 Последние записи",
+                callback_data="menu:recent"
+            ),
+        ],
     ]
 
     if WEBAPP_URL:
-
         rows.append([
-            KeyboardButton(
-                "📊 Открыть приложение",
-                web_app=WebAppInfo(url=WEBAPP_URL),
+            InlineKeyboardButton(
+                "📱 Открыть приложение",
+                web_app=WebAppInfo(url=WEBAPP_URL)
             )
         ])
 
-    return ReplyKeyboardMarkup(
-        rows,
-        resize_keyboard=True,
-    )
+    return InlineKeyboardMarkup(rows)
 
 
-async def start(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE,
-):
-
-    await update.message.reply_text(
-        "Привет! Я твой финансовый трекер.\n\n"
-        "Помогу вести доходы (стройка + Uber) "
-        "и расходы по категориям.\n\n"
-        "Выбери действие на клавиатуре ниже 👇",
-        reply_markup=main_menu_keyboard(),
-    )
+def cancel_keyboard():
+    return InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton(
+                "❌ Отмена",
+                callback_data="menu:cancel"
+            )
+        ]
+    ])
 
 
-async def cancel(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE,
-):
+async def show_menu_message(update, text="Выбери действие:"):
+    if update.callback_query:
+        query = update.callback_query
+        await query.answer()
+        await query.edit_message_text(
+            text,
+            reply_markup=main_menu()
+        )
+    else:
+        await update.message.reply_text(
+            text,
+            reply_markup=main_menu()
+        )
 
+
+# =========================================================
+# START
+# =========================================================
+
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data.clear()
 
-    await update.message.reply_text(
-        "Отменено.",
-        reply_markup=main_menu_keyboard(),
+    user = update.effective_user
+
+    name = user.first_name or "друг"
+
+    text = (
+        f"Привет, {name}! 👋\n\n"
+        "💰 <b>Financebot</b>\n"
+        "Твой личный финансовый трекер.\n\n"
+        "Здесь можно записывать доходы и расходы, "
+        "смотреть баланс и открывать аналитику.\n\n"
+        "Выбери действие:"
     )
 
-    return ConversationHandler.END
+    await update.message.reply_text(
+        text,
+        parse_mode="HTML",
+        reply_markup=main_menu()
+    )
 
 
-# ============================================================
-# ADD EXPENSE
-# ============================================================
+# =========================================================
+# ГЛАВНОЕ МЕНЮ CALLBACK
+# =========================================================
 
-async def expense_start(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE,
-):
+async def menu_expense(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
 
     context.user_data.clear()
 
@@ -284,27 +312,220 @@ async def expense_start(
         [
             InlineKeyboardButton(
                 value,
-                callback_data=f"cat:{key}",
+                callback_data=f"cat:{key}"
             )
         ]
         for key, value in EXPENSE_CATEGORIES.items()
     ]
 
-    await update.message.reply_text(
-        "Выбери категорию расхода:",
-        reply_markup=InlineKeyboardMarkup(buttons),
+    buttons.append([
+        InlineKeyboardButton(
+            "❌ Отмена",
+            callback_data="menu:cancel"
+        )
+    ])
+
+    await query.edit_message_text(
+        "💸 <b>Добавление расхода</b>\n\n"
+        "Выбери категорию:",
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup(buttons)
     )
 
     return EXP_CATEGORY
 
 
-async def expense_category(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE,
-):
+async def menu_income(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+
+    context.user_data.clear()
+
+    buttons = [
+        [
+            InlineKeyboardButton(
+                value,
+                callback_data=f"src:{key}"
+            )
+        ]
+        for key, value in INCOME_SOURCES.items()
+    ]
+
+    buttons.append([
+        InlineKeyboardButton(
+            "❌ Отмена",
+            callback_data="menu:cancel"
+        )
+    ])
+
+    await query.edit_message_text(
+        "💰 <b>Добавление дохода</b>\n\n"
+        "Выбери источник:",
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup(buttons)
+    )
+
+    return INC_SOURCE
+
+
+async def menu_balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+
+    buttons = [
+        [
+            InlineKeyboardButton(
+                "Сегодня",
+                callback_data="bal:day"
+            ),
+            InlineKeyboardButton(
+                "Неделя",
+                callback_data="bal:week"
+            ),
+        ],
+        [
+            InlineKeyboardButton(
+                "Месяц",
+                callback_data="bal:month"
+            ),
+            InlineKeyboardButton(
+                "Год",
+                callback_data="bal:year"
+            ),
+        ],
+        [
+            InlineKeyboardButton(
+                "Всё время",
+                callback_data="bal:all"
+            )
+        ],
+        [
+            InlineKeyboardButton(
+                "⬅️ Назад",
+                callback_data="menu:home"
+            )
+        ],
+    ]
+
+    await query.edit_message_text(
+        "📊 <b>Баланс</b>\n\n"
+        "За какой период показать статистику?",
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup(buttons)
+    )
+
+
+async def menu_recent(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+
+    user_id = update.effective_user.id
+
+    conn = db()
+
+    exp_rows = conn.execute(
+        """
+        SELECT date, category, amount, note, share_pct
+        FROM expenses
+        WHERE user_id=?
+        ORDER BY id DESC
+        LIMIT 8
+        """,
+        (user_id,)
+    ).fetchall()
+
+    inc_rows = conn.execute(
+        """
+        SELECT date, source, amount
+        FROM income
+        WHERE user_id=?
+        ORDER BY id DESC
+        LIMIT 8
+        """,
+        (user_id,)
+    ).fetchall()
+
+    conn.close()
+
+    lines = ["🗒 <b>Последние записи</b>\n"]
+
+    if exp_rows:
+        lines.append("💸 <b>Расходы:</b>")
+
+        for r in exp_rows:
+            counted = r["amount"] * r["share_pct"] / 100
+
+            share_note = (
+                f" ({r['share_pct']:.0f}%)"
+                if r["share_pct"] != 100
+                else ""
+            )
+
+            note = f" · {r['note']}" if r["note"] else ""
+
+            lines.append(
+                f"{r['date']} · "
+                f"{EXPENSE_CATEGORIES.get(r['category'], r['category'])} · "
+                f"{fmt(counted)}"
+                f"{share_note}"
+                f"{note}"
+            )
+    else:
+        lines.append("💸 Расходов пока нет.")
+
+    lines.append("")
+
+    if inc_rows:
+        lines.append("💰 <b>Доходы:</b>")
+
+        for r in inc_rows:
+            lines.append(
+                f"{r['date']} · "
+                f"{INCOME_SOURCES.get(r['source'], r['source'])} · "
+                f"{fmt(r['amount'])}"
+            )
+    else:
+        lines.append("💰 Доходов пока нет.")
+
+    await query.edit_message_text(
+        "\n".join(lines),
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup([
+            [
+                InlineKeyboardButton(
+                    "⬅️ Назад",
+                    callback_data="menu:home"
+                )
+            ]
+        ])
+    )
+
+
+async def menu_home(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    context.user_data.clear()
+    await show_menu_message(update)
+
+
+async def menu_cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    context.user_data.clear()
 
     query = update.callback_query
+    await query.answer()
 
+    await query.edit_message_text(
+        "❌ Действие отменено.\n\nВыбери действие:",
+        reply_markup=main_menu()
+    )
+
+    return ConversationHandler.END
+
+
+# =========================================================
+# EXPENSE
+# =========================================================
+
+async def expense_category(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
     await query.answer()
 
     category = query.data.split(":")[1]
@@ -312,52 +533,46 @@ async def expense_category(
     context.user_data["category"] = category
 
     await query.edit_message_text(
-        f"Категория: "
-        f"{EXPENSE_CATEGORIES[category]}\n\n"
-        f"Введи сумму, zł:"
+        f"Категория: {EXPENSE_CATEGORIES[category]}\n\n"
+        "💰 Введи сумму расхода, zł:",
+        reply_markup=cancel_keyboard()
     )
 
     return EXP_AMOUNT
 
 
-async def expense_amount(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE,
-):
-
+async def expense_amount(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
-
         amount = float(
-            update.message.text.replace(",", ".")
+            update.message.text.replace(",", ".").strip()
         )
 
         if amount <= 0:
             raise ValueError
 
     except ValueError:
-
         await update.message.reply_text(
-            "Не понял сумму. "
-            "Введи число, например 45.50"
+            "❌ Не понял сумму.\n\n"
+            "Введи число, например: <b>45,50</b>",
+            parse_mode="HTML",
+            reply_markup=cancel_keyboard()
         )
-
         return EXP_AMOUNT
 
     context.user_data["amount"] = amount
 
     await update.message.reply_text(
-        "Заметка (например, магазин)? "
-        "Или отправь «-», если не нужна."
+        "📝 Добавь заметку.\n\n"
+        "Например: Biedronka, бензин, инструменты.\n\n"
+        "Если заметка не нужна, отправь <b>-</b>.",
+        parse_mode="HTML",
+        reply_markup=cancel_keyboard()
     )
 
     return EXP_NOTE
 
 
-async def expense_note(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE,
-):
-
+async def expense_note(update: Update, context: ContextTypes.DEFAULT_TYPE):
     note = update.message.text.strip()
 
     context.user_data["note"] = (
@@ -366,46 +581,50 @@ async def expense_note(
         else note
     )
 
-    buttons = [[
-        InlineKeyboardButton(
-            "100%",
-            callback_data="share:100",
-        ),
-        InlineKeyboardButton(
-            "75%",
-            callback_data="share:75",
-        ),
-        InlineKeyboardButton(
-            "50%",
-            callback_data="share:50",
-        ),
-        InlineKeyboardButton(
-            "25%",
-            callback_data="share:25",
-        ),
-    ]]
+    buttons = [
+        [
+            InlineKeyboardButton(
+                "100%",
+                callback_data="share:100"
+            ),
+            InlineKeyboardButton(
+                "75%",
+                callback_data="share:75"
+            ),
+        ],
+        [
+            InlineKeyboardButton(
+                "50%",
+                callback_data="share:50"
+            ),
+            InlineKeyboardButton(
+                "25%",
+                callback_data="share:25"
+            ),
+        ],
+        [
+            InlineKeyboardButton(
+                "❌ Отмена",
+                callback_data="menu:cancel"
+            )
+        ]
+    ]
 
     await update.message.reply_text(
-        "Какая доля суммы твоя? "
-        "(если делите с кем-то расходы)",
-        reply_markup=InlineKeyboardMarkup(buttons),
+        "👥 Какая доля суммы твоя?\n\n"
+        "Если платил только ты, выбирай <b>100%</b>.",
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup(buttons)
     )
 
     return EXP_SHARE
 
 
-async def expense_share(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE,
-):
-
+async def expense_share(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
-
     await query.answer()
 
-    pct = float(
-        query.data.split(":")[1]
-    )
+    pct = float(query.data.split(":")[1])
 
     data = context.user_data
 
@@ -414,14 +633,7 @@ async def expense_share(
     conn.execute(
         """
         INSERT INTO expenses
-        (
-            user_id,
-            date,
-            category,
-            amount,
-            note,
-            share_pct
-        )
+        (user_id, date, category, amount, note, share_pct)
         VALUES (?, ?, ?, ?, ?, ?)
         """,
         (
@@ -431,64 +643,39 @@ async def expense_share(
             data["amount"],
             data["note"],
             pct,
-        ),
+        )
     )
 
     conn.commit()
     conn.close()
 
-    counted = (
-        data["amount"] * pct / 100
-    )
+    counted = data["amount"] * pct / 100
 
-    await query.edit_message_text(
-        f"✅ Добавлено: "
-        f"{EXPENSE_CATEGORIES[data['category']]} "
-        f"— {fmt(data['amount'])} "
-        f"({pct:.0f}% → {fmt(counted)})"
+    text = (
+        "✅ <b>Расход добавлен</b>\n\n"
+        f"{EXPENSE_CATEGORIES[data['category']]}\n"
+        f"Сумма: {fmt(data['amount'])}\n"
+        f"Твоя доля: {pct:.0f}%\n"
+        f"Учтено: <b>{fmt(counted)}</b>"
     )
 
     context.user_data.clear()
+
+    await query.edit_message_text(
+        text,
+        parse_mode="HTML",
+        reply_markup=main_menu()
+    )
 
     return ConversationHandler.END
 
 
-# ============================================================
-# ADD INCOME
-# ============================================================
+# =========================================================
+# INCOME
+# =========================================================
 
-async def income_start(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE,
-):
-
-    context.user_data.clear()
-
-    buttons = [
-        [
-            InlineKeyboardButton(
-                value,
-                callback_data=f"src:{key}",
-            )
-        ]
-        for key, value in INCOME_SOURCES.items()
-    ]
-
-    await update.message.reply_text(
-        "Выбери источник дохода:",
-        reply_markup=InlineKeyboardMarkup(buttons),
-    )
-
-    return INC_SOURCE
-
-
-async def income_source(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE,
-):
-
+async def income_source(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
-
     await query.answer()
 
     source = query.data.split(":")[1]
@@ -498,38 +685,40 @@ async def income_source(
     if source == "uber":
 
         await query.edit_message_text(
-            "Сумма на руки (netto), zł:"
+            "🛵 <b>Uber</b>\n\n"
+            "Введи сумму на руки (netto), zł:",
+            parse_mode="HTML",
+            reply_markup=cancel_keyboard()
         )
 
         return INC_UBER_AMOUNT
 
     await query.edit_message_text(
-        "Сколько часов отработано?"
+        "🏗 <b>Стройка</b>\n\n"
+        "Сколько часов отработано?",
+        parse_mode="HTML",
+        reply_markup=cancel_keyboard()
     )
 
     return INC_HOURS
 
 
-async def income_uber_amount(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE,
-):
-
+async def income_uber_amount(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
-
         amount = float(
-            update.message.text.replace(",", ".")
+            update.message.text.replace(",", ".").strip()
         )
 
         if amount <= 0:
             raise ValueError
 
     except ValueError:
-
         await update.message.reply_text(
-            "Не понял сумму. Введи число."
+            "❌ Не понял сумму.\n\n"
+            "Например: <b>150</b>",
+            parse_mode="HTML",
+            reply_markup=cancel_keyboard()
         )
-
         return INC_UBER_AMOUNT
 
     conn = db()
@@ -537,12 +726,7 @@ async def income_uber_amount(
     conn.execute(
         """
         INSERT INTO income
-        (
-            user_id,
-            date,
-            source,
-            amount
-        )
+        (user_id, date, source, amount)
         VALUES (?, ?, ?, ?)
         """,
         (
@@ -550,139 +734,125 @@ async def income_uber_amount(
             datetime.now().strftime("%Y-%m-%d"),
             "uber",
             amount,
-        ),
+        )
     )
 
     conn.commit()
     conn.close()
 
-    await update.message.reply_text(
-        f"✅ Доход Uber: {fmt(amount)}",
-        reply_markup=main_menu_keyboard(),
-    )
-
     context.user_data.clear()
+
+    await update.message.reply_text(
+        f"✅ <b>Доход Uber добавлен</b>\n\n"
+        f"{fmt(amount)}",
+        parse_mode="HTML",
+        reply_markup=main_menu()
+    )
 
     return ConversationHandler.END
 
 
-async def _ask_float(
+async def ask_float(
     update,
     context,
     key,
     next_state,
-    prompt,
+    prompt
 ):
-
     try:
-
         value = float(
-            update.message.text.replace(",", ".")
+            update.message.text.replace(",", ".").strip()
         )
 
         if value < 0:
             raise ValueError
 
     except ValueError:
-
         await update.message.reply_text(
-            "Не понял число, попробуй ещё раз."
+            "❌ Не понял число.\n\n"
+            "Попробуй ещё раз.",
+            reply_markup=cancel_keyboard()
         )
-
         return None
 
     context.user_data[key] = value
 
-    await update.message.reply_text(prompt)
+    await update.message.reply_text(
+        prompt,
+        reply_markup=cancel_keyboard()
+    )
 
     return next_state
 
 
-async def income_hours(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE,
-):
-
-    result = await _ask_float(
+async def income_hours(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    result = await ask_float(
         update,
         context,
         "hours",
         INC_RATE,
-        "Ставка, zł/час (brutto)?",
+        "💰 Какая ставка, zł/час (brutto)?"
     )
 
-    return result if result else INC_HOURS
+    return result if result is not None else INC_HOURS
 
 
-async def income_rate(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE,
-):
-
-    result = await _ask_float(
+async def income_rate(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    result = await ask_float(
         update,
         context,
         "rate",
         INC_OFFICIAL_HOURS,
-        "Сколько из них официальных часов?",
+        "📋 Сколько из этих часов официальные?"
     )
 
-    return result if result else INC_RATE
+    return result if result is not None else INC_RATE
 
 
 async def income_official_hours(
     update: Update,
-    context: ContextTypes.DEFAULT_TYPE,
+    context: ContextTypes.DEFAULT_TYPE
 ):
-
-    result = await _ask_float(
+    result = await ask_float(
         update,
         context,
         "official_hours",
         INC_ZUS,
-        "Сумма ZUS за этот период, zł?",
+        "💳 Сколько ZUS за этот период, zł?"
     )
 
-    return (
-        result
-        if result
-        else INC_OFFICIAL_HOURS
-    )
+    return result if result is not None else INC_OFFICIAL_HOURS
 
 
-async def income_zus(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE,
-):
-
-    result = await _ask_float(
+async def income_zus(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    result = await ask_float(
         update,
         context,
         "zus",
         INC_TAXPCT,
-        "Налог с наличных, %? (обычно 10)",
+        "💵 Какой налог с наличных, %?\n\n"
+        "Например: 10"
     )
 
-    return result if result else INC_ZUS
+    return result if result is not None else INC_ZUS
 
 
-async def income_taxpct(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE,
-):
-
+async def income_taxpct(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
-
         tax_pct = float(
-            update.message.text.replace(",", ".")
+            update.message.text.replace(",", ".").strip()
         )
+
+        if tax_pct < 0:
+            raise ValueError
 
     except ValueError:
-
         await update.message.reply_text(
-            "Не понял число, попробуй ещё раз."
+            "❌ Не понял процент.\n\n"
+            "Например: <b>10</b>",
+            parse_mode="HTML",
+            reply_markup=cancel_keyboard()
         )
-
         return INC_TAXPCT
 
     data = context.user_data
@@ -695,28 +865,23 @@ async def income_taxpct(
     gross = hours * rate
 
     official_amount = (
-        min(
-            official_hours,
-            hours,
-        )
-        * rate
+        min(official_hours, hours) * rate
     )
 
     cash_amount = max(
         gross - official_amount,
-        0,
+        0
     )
 
     cash_tax = (
-        cash_amount
-        * tax_pct
-        / 100
+        cash_amount * tax_pct / 100
     )
 
     net = (
-        official_amount - zus
-    ) + (
-        cash_amount - cash_tax
+        official_amount
+        - zus
+        + cash_amount
+        - cash_tax
     )
 
     conn = db()
@@ -749,87 +914,42 @@ async def income_taxpct(
             official_hours,
             zus,
             tax_pct,
-        ),
+        )
     )
 
     conn.commit()
     conn.close()
 
     text = (
-        "✅ Стройка добавлена\n\n"
+        "✅ <b>Стройка добавлена</b>\n\n"
         f"Brutto: {fmt(gross)}\n"
         f"− ZUS: {fmt(zus)}\n"
         f"− налог с наличных "
         f"({tax_pct:.0f}%): {fmt(cash_tax)}\n"
-        "— — — — —\n"
-        f"Netto на руки: {fmt(net)}"
-    )
-
-    await update.message.reply_text(
-        text,
-        reply_markup=main_menu_keyboard(),
+        "━━━━━━━━━━━━\n"
+        f"💰 Netto на руки: <b>{fmt(net)}</b>"
     )
 
     context.user_data.clear()
 
+    await update.message.reply_text(
+        text,
+        parse_mode="HTML",
+        reply_markup=main_menu()
+    )
+
     return ConversationHandler.END
 
 
-# ============================================================
+# =========================================================
 # BALANCE
-# ============================================================
-
-PERIOD_LABELS = {
-    "day": "день",
-    "week": "неделю",
-    "month": "месяц",
-    "year": "год",
-    "all": "всё время",
-}
-
-
-async def balance_start(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE,
-):
-
-    buttons = [[
-        InlineKeyboardButton(
-            "День",
-            callback_data="bal:day",
-        ),
-        InlineKeyboardButton(
-            "Неделя",
-            callback_data="bal:week",
-        ),
-        InlineKeyboardButton(
-            "Месяц",
-            callback_data="bal:month",
-        ),
-    ], [
-        InlineKeyboardButton(
-            "Год",
-            callback_data="bal:year",
-        ),
-        InlineKeyboardButton(
-            "Всё время",
-            callback_data="bal:all",
-        ),
-    ]]
-
-    await update.message.reply_text(
-        "За какой период показать баланс?",
-        reply_markup=InlineKeyboardMarkup(buttons),
-    )
-
+# =========================================================
 
 async def balance_show(
     update: Update,
-    context: ContextTypes.DEFAULT_TYPE,
+    context: ContextTypes.DEFAULT_TYPE
 ):
-
     query = update.callback_query
-
     await query.answer()
 
     period = query.data.split(":")[1]
@@ -844,22 +964,15 @@ async def balance_show(
         """
         SELECT
             category,
-            SUM(
-                amount * share_pct / 100.0
-            ) AS total
+            SUM(amount * share_pct / 100.0) AS total
         FROM expenses
-        WHERE
-            user_id=?
-            AND date>=?
-            AND date<?
+        WHERE user_id=?
+          AND date>=?
+          AND date<?
         GROUP BY category
         ORDER BY total DESC
         """,
-        (
-            user_id,
-            start,
-            end,
-        ),
+        (user_id, start, end)
     ).fetchall()
 
     inc_rows = conn.execute(
@@ -868,18 +981,13 @@ async def balance_show(
             source,
             SUM(amount) AS total
         FROM income
-        WHERE
-            user_id=?
-            AND date>=?
-            AND date<?
+        WHERE user_id=?
+          AND date>=?
+          AND date<?
         GROUP BY source
         ORDER BY total DESC
         """,
-        (
-            user_id,
-            start,
-            end,
-        ),
+        (user_id, start, end)
     ).fetchall()
 
     conn.close()
@@ -899,587 +1007,68 @@ async def balance_show(
     net = total_inc - total_exp
 
     lines = [
-        f"📊 Баланс за "
-        f"{PERIOD_LABELS[period]}\n"
+        f"📊 <b>Баланс за {PERIOD_LABELS[period]}</b>\n",
+        f"💰 Доходы: <b>{fmt(total_inc)}</b>",
     ]
 
-    lines.append(
-        f"Доходы: {fmt(total_inc)}"
-    )
-
-    for row in inc_rows:
-
+    for r in inc_rows:
         lines.append(
-            f"  "
-            f"{INCOME_SOURCES.get(row['source'], row['source'])}: "
-            f"{fmt(row['total'])}"
+            f"  {INCOME_SOURCES.get(r['source'], r['source'])}: "
+            f"{fmt(r['total'])}"
         )
 
     lines.append(
-        f"\nРасходы: {fmt(total_exp)}"
+        f"\n💸 Расходы: <b>{fmt(total_exp)}</b>"
     )
 
-    for row in exp_rows:
+    for r in exp_rows:
 
         pct = (
-            row["total"]
-            / total_exp
-            * 100
+            r["total"] / total_exp * 100
             if total_exp
             else 0
         )
 
         lines.append(
-            f"  "
-            f"{EXPENSE_CATEGORIES.get(row['category'], row['category'])}: "
-            f"{fmt(row['total'])} "
+            f"  {EXPENSE_CATEGORIES.get(r['category'], r['category'])}: "
+            f"{fmt(r['total'])} "
             f"({pct:.0f}%)"
         )
 
-    lines.append(
-        f"\n💰 Итого: "
-        f"{'−' if net < 0 else ''}"
-        f"{fmt(abs(net))}"
-    )
+    if net >= 0:
+        lines.append(
+            f"\n🟢 <b>Итого: +{fmt(net)}</b>"
+        )
+    else:
+        lines.append(
+            f"\n🔴 <b>Итого: −{fmt(abs(net))}</b>"
+        )
 
     await query.edit_message_text(
-        "\n".join(lines)
-    )
-
-
-# ============================================================
-# RECENT OPERATIONS
-# ============================================================
-
-async def recent(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE,
-):
-
-    user_id = update.effective_user.id
-
-    conn = db()
-
-    exp_rows = conn.execute(
-        """
-        SELECT
-            date,
-            category,
-            amount,
-            note,
-            share_pct
-        FROM expenses
-        WHERE user_id=?
-        ORDER BY id DESC
-        LIMIT 8
-        """,
-        (user_id,),
-    ).fetchall()
-
-    inc_rows = conn.execute(
-        """
-        SELECT
-            date,
-            source,
-            amount
-        FROM income
-        WHERE user_id=?
-        ORDER BY id DESC
-        LIMIT 8
-        """,
-        (user_id,),
-    ).fetchall()
-
-    conn.close()
-
-    lines = [
-        "🗒 Последние расходы:"
-    ]
-
-    if not exp_rows:
-
-        lines.append(
-            "  пока нет записей"
-        )
-
-    for row in exp_rows:
-
-        counted = (
-            row["amount"]
-            * row["share_pct"]
-            / 100
-        )
-
-        share_note = (
-            f" ({row['share_pct']:.0f}%)"
-            if row["share_pct"] != 100
-            else ""
-        )
-
-        lines.append(
-            f"  "
-            f"{row['date']} · "
-            f"{EXPENSE_CATEGORIES.get(row['category'], row['category'])} · "
-            f"{fmt(counted)}"
-            f"{share_note} · "
-            f"{row['note'] or ''}"
-        )
-
-    lines.append(
-        "\n🗒 Последние доходы:"
-    )
-
-    if not inc_rows:
-
-        lines.append(
-            "  пока нет записей"
-        )
-
-    for row in inc_rows:
-
-        lines.append(
-            f"  "
-            f"{row['date']} · "
-            f"{INCOME_SOURCES.get(row['source'], row['source'])} · "
-            f"{fmt(row['amount'])}"
-        )
-
-    await update.message.reply_text(
-        "\n".join(lines)
-    )
-
-
-# ============================================================
-# DELETE OPERATION
-# ============================================================
-
-async def delete_start(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE,
-):
-
-    user_id = update.effective_user.id
-
-    conn = db()
-
-    expenses = conn.execute(
-        """
-        SELECT
-            id,
-            date,
-            category,
-            amount,
-            note,
-            share_pct
-        FROM expenses
-        WHERE user_id=?
-        ORDER BY id DESC
-        LIMIT 8
-        """,
-        (user_id,),
-    ).fetchall()
-
-    incomes = conn.execute(
-        """
-        SELECT
-            id,
-            date,
-            source,
-            amount
-        FROM income
-        WHERE user_id=?
-        ORDER BY id DESC
-        LIMIT 8
-        """,
-        (user_id,),
-    ).fetchall()
-
-    conn.close()
-
-    operations = []
-
-    for row in expenses:
-
-        counted = (
-            row["amount"]
-            * row["share_pct"]
-            / 100
-        )
-
-        operations.append({
-            "id": row["id"],
-            "type": "expense",
-            "date": row["date"],
-            "label": EXPENSE_CATEGORIES.get(
-                row["category"],
-                row["category"],
-            ),
-            "amount": counted,
-            "note": row["note"] or "",
-        })
-
-    for row in incomes:
-
-        operations.append({
-            "id": row["id"],
-            "type": "income",
-            "date": row["date"],
-            "label": INCOME_SOURCES.get(
-                row["source"],
-                row["source"],
-            ),
-            "amount": row["amount"],
-            "note": "",
-        })
-
-    operations.sort(
-        key=lambda item: item["date"],
-        reverse=True,
-    )
-
-    operations = operations[:10]
-
-    if not operations:
-
-        await update.message.reply_text(
-            "🗑 Удалять пока нечего.",
-            reply_markup=main_menu_keyboard(),
-        )
-
-        return
-
-    buttons = []
-
-    for operation in operations:
-
-        sign = (
-            "+"
-            if operation["type"] == "income"
-            else "−"
-        )
-
-        text = (
-            f"{sign} "
-            f"{operation['label']} · "
-            f"{fmt(operation['amount'])}"
-        )
-
-        buttons.append([
-            InlineKeyboardButton(
-                text,
-                callback_data=(
-                    f"del:"
-                    f"{operation['type']}:"
-                    f"{operation['id']}"
-                ),
-            )
+        "\n".join(lines),
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup([
+            [
+                InlineKeyboardButton(
+                    "⬅️ Назад",
+                    callback_data="menu:balance"
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    "🏠 Главное меню",
+                    callback_data="menu:home"
+                )
+            ]
         ])
-
-    buttons.append([
-        InlineKeyboardButton(
-            "✖️ Отмена",
-            callback_data="del:cancel",
-        )
-    ])
-
-    await update.message.reply_text(
-        "🗑 Выбери операцию, "
-        "которую хочешь удалить:",
-        reply_markup=InlineKeyboardMarkup(buttons),
     )
 
 
-async def delete_select(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE,
-):
-
-    query = update.callback_query
-
-    await query.answer()
-
-    if query.data == "del:cancel":
-
-        await query.edit_message_text(
-            "Удаление отменено."
-        )
-
-        return
-
-    parts = query.data.split(":")
-
-    if len(parts) != 3:
-
-        await query.edit_message_text(
-            "❌ Не удалось определить операцию."
-        )
-
-        return
-
-    operation_type = parts[1]
-
-    try:
-        operation_id = int(parts[2])
-    except ValueError:
-
-        await query.edit_message_text(
-            "❌ Некорректный ID операции."
-        )
-
-        return
-
-    if operation_type not in {
-        "expense",
-        "income",
-    }:
-
-        await query.edit_message_text(
-            "❌ Неизвестный тип операции."
-        )
-
-        return
-
-    user_id = update.effective_user.id
-
-    conn = db()
-
-    if operation_type == "expense":
-
-        row = conn.execute(
-            """
-            SELECT
-                id,
-                date,
-                category,
-                amount,
-                note,
-                share_pct
-            FROM expenses
-            WHERE
-                id=?
-                AND user_id=?
-            """,
-            (
-                operation_id,
-                user_id,
-            ),
-        ).fetchone()
-
-        if not row:
-
-            conn.close()
-
-            await query.edit_message_text(
-                "❌ Операция не найдена."
-            )
-
-            return
-
-        counted = (
-            row["amount"]
-            * row["share_pct"]
-            / 100
-        )
-
-        label = EXPENSE_CATEGORIES.get(
-            row["category"],
-            row["category"],
-        )
-
-        description = (
-            f"💸 {label}\n"
-            f"Сумма: {fmt(counted)}\n"
-            f"Дата: {row['date']}"
-        )
-
-    else:
-
-        row = conn.execute(
-            """
-            SELECT
-                id,
-                date,
-                source,
-                amount
-            FROM income
-            WHERE
-                id=?
-                AND user_id=?
-            """,
-            (
-                operation_id,
-                user_id,
-            ),
-        ).fetchone()
-
-        if not row:
-
-            conn.close()
-
-            await query.edit_message_text(
-                "❌ Операция не найдена."
-            )
-
-            return
-
-        label = INCOME_SOURCES.get(
-            row["source"],
-            row["source"],
-        )
-
-        description = (
-            f"💰 {label}\n"
-            f"Сумма: {fmt(row['amount'])}\n"
-            f"Дата: {row['date']}"
-        )
-
-    conn.close()
-
-    context.user_data["delete_type"] = (
-        operation_type
-    )
-
-    context.user_data["delete_id"] = (
-        operation_id
-    )
-
-    buttons = [[
-        InlineKeyboardButton(
-            "🗑 Да, удалить",
-            callback_data="del_confirm",
-        )
-    ], [
-        InlineKeyboardButton(
-            "✖️ Отмена",
-            callback_data="del_cancel",
-        )
-    ]]
-
-    await query.edit_message_text(
-        "⚠️ Удалить эту операцию?\n\n"
-        f"{description}",
-        reply_markup=InlineKeyboardMarkup(buttons),
-    )
-
-
-async def delete_confirm(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE,
-):
-
-    query = update.callback_query
-
-    await query.answer()
-
-    operation_type = context.user_data.get(
-        "delete_type"
-    )
-
-    operation_id = context.user_data.get(
-        "delete_id"
-    )
-
-    if not operation_type or not operation_id:
-
-        await query.edit_message_text(
-            "❌ Операция больше недоступна."
-        )
-
-        return
-
-    user_id = update.effective_user.id
-
-    conn = db()
-
-    if operation_type == "expense":
-
-        cursor = conn.execute(
-            """
-            DELETE FROM expenses
-            WHERE
-                id=?
-                AND user_id=?
-            """,
-            (
-                operation_id,
-                user_id,
-            ),
-        )
-
-    else:
-
-        cursor = conn.execute(
-            """
-            DELETE FROM income
-            WHERE
-                id=?
-                AND user_id=?
-            """,
-            (
-                operation_id,
-                user_id,
-            ),
-        )
-
-    conn.commit()
-
-    deleted = cursor.rowcount
-
-    conn.close()
-
-    context.user_data.pop(
-        "delete_type",
-        None,
-    )
-
-    context.user_data.pop(
-        "delete_id",
-        None,
-    )
-
-    if deleted:
-
-        await query.edit_message_text(
-            "✅ Операция удалена."
-        )
-
-    else:
-
-        await query.edit_message_text(
-            "❌ Операция уже была удалена "
-            "или не найдена."
-        )
-
-
-async def delete_cancel(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE,
-):
-
-    query = update.callback_query
-
-    await query.answer()
-
-    context.user_data.pop(
-        "delete_type",
-        None,
-    )
-
-    context.user_data.pop(
-        "delete_id",
-        None,
-    )
-
-    await query.edit_message_text(
-        "Удаление отменено."
-    )
-
-
-# ============================================================
+# =========================================================
 # MINI APP API
-# ============================================================
+# =========================================================
 
-def _telegram_user_id(init_data: str):
+def telegram_user_id(init_data: str):
 
     if not init_data or not BOT_TOKEN:
         return None
@@ -1491,14 +1080,11 @@ def _telegram_user_id(init_data: str):
         pairs = dict(
             parse_qsl(
                 init_data,
-                keep_blank_values=True,
+                keep_blank_values=True
             )
         )
 
-        received_hash = pairs.pop(
-            "hash",
-            None,
-        )
+        received_hash = pairs.pop("hash", None)
 
         if not received_hash:
             return None
@@ -1511,43 +1097,35 @@ def _telegram_user_id(init_data: str):
         secret = hmac.new(
             b"WebAppData",
             BOT_TOKEN.encode(),
-            hashlib.sha256,
+            hashlib.sha256
         ).digest()
 
         calculated_hash = hmac.new(
             secret,
             data_check.encode(),
-            hashlib.sha256,
+            hashlib.sha256
         ).hexdigest()
 
         if not hmac.compare_digest(
             calculated_hash,
-            received_hash,
+            received_hash
         ):
             return None
 
         user = json.loads(
-            pairs.get(
-                "user",
-                "{}",
-            )
+            pairs.get("user", "{}")
         )
 
-        return (
-            int(user.get("id"))
-            if user.get("id")
-            else None
-        )
+        if not user.get("id"):
+            return None
+
+        return int(user["id"])
 
     except Exception:
-
         return None
 
 
-def _dashboard(
-    user_id: int,
-    period: str,
-):
+def dashboard_data(user_id: int, period: str):
 
     start, end = period_bounds(period)
 
@@ -1555,43 +1133,27 @@ def _dashboard(
 
     income = conn.execute(
         """
-        SELECT
-            COALESCE(SUM(amount), 0)
+        SELECT COALESCE(SUM(amount), 0)
         FROM income
-        WHERE
-            user_id=?
-            AND date>=?
-            AND date<?
+        WHERE user_id=?
+          AND date>=?
+          AND date<?
         """,
-        (
-            user_id,
-            start,
-            end,
-        ),
+        (user_id, start, end)
     ).fetchone()[0]
 
     expenses = conn.execute(
         """
-        SELECT
-            COALESCE(
-                SUM(
-                    amount
-                    * share_pct
-                    / 100.0
-                ),
-                0
-            )
+        SELECT COALESCE(
+            SUM(amount * share_pct / 100.0),
+            0
+        )
         FROM expenses
-        WHERE
-            user_id=?
-            AND date>=?
-            AND date<?
+        WHERE user_id=?
+          AND date>=?
+          AND date<?
         """,
-        (
-            user_id,
-            start,
-            end,
-        ),
+        (user_id, start, end)
     ).fetchone()[0]
 
     income_sources = conn.execute(
@@ -1600,49 +1162,35 @@ def _dashboard(
             source,
             SUM(amount) AS total
         FROM income
-        WHERE
-            user_id=?
-            AND date>=?
-            AND date<?
+        WHERE user_id=?
+          AND date>=?
+          AND date<?
         GROUP BY source
         ORDER BY total DESC
         """,
-        (
-            user_id,
-            start,
-            end,
-        ),
+        (user_id, start, end)
     ).fetchall()
 
     expense_categories = conn.execute(
         """
         SELECT
             category,
-            SUM(
-                amount
-                * share_pct
-                / 100.0
-            ) AS total
+            SUM(amount * share_pct / 100.0) AS total
         FROM expenses
-        WHERE
-            user_id=?
-            AND date>=?
-            AND date<?
+        WHERE user_id=?
+          AND date>=?
+          AND date<?
         GROUP BY category
         ORDER BY total DESC
         """,
-        (
-            user_id,
-            start,
-            end,
-        ),
+        (user_id, start, end)
     ).fetchall()
 
     recent_expenses = conn.execute(
         """
         SELECT
             date,
-            category AS label,
+            category,
             amount * share_pct / 100.0 AS amount,
             note
         FROM expenses
@@ -1650,22 +1198,49 @@ def _dashboard(
         ORDER BY id DESC
         LIMIT 6
         """,
-        (user_id,),
+        (user_id,)
     ).fetchall()
 
     recent_income = conn.execute(
         """
         SELECT
             date,
-            source AS label,
-            amount,
-            '' AS note
+            source,
+            amount
         FROM income
         WHERE user_id=?
         ORDER BY id DESC
         LIMIT 6
         """,
-        (user_id,),
+        (user_id,)
+    ).fetchall()
+
+    daily_income = conn.execute(
+        """
+        SELECT
+            date,
+            SUM(amount) AS total
+        FROM income
+        WHERE user_id=?
+          AND date>=?
+          AND date<?
+        GROUP BY date
+        """,
+        (user_id, start, end)
+    ).fetchall()
+
+    daily_expenses = conn.execute(
+        """
+        SELECT
+            date,
+            SUM(amount * share_pct / 100.0) AS total
+        FROM expenses
+        WHERE user_id=?
+          AND date>=?
+          AND date<?
+        GROUP BY date
+        """,
+        (user_id, start, end)
     ).fetchall()
 
     conn.close()
@@ -1674,119 +1249,59 @@ def _dashboard(
         lambda: [0.0, 0.0]
     )
 
-    conn = db()
-
-    income_daily = conn.execute(
-        """
-        SELECT
-            date,
-            SUM(amount) AS total
-        FROM income
-        WHERE
-            user_id=?
-            AND date>=?
-            AND date<?
-        GROUP BY date
-        """,
-        (
-            user_id,
-            start,
-            end,
-        ),
-    )
-
-    for row in income_daily:
-
-        daily[row["date"]][0] = (
+    for row in daily_income:
+        daily[row["date"]][0] = float(
             row["total"]
         )
 
-    expense_daily = conn.execute(
-        """
-        SELECT
-            date,
-            SUM(
-                amount
-                * share_pct
-                / 100.0
-            ) AS total
-        FROM expenses
-        WHERE
-            user_id=?
-            AND date>=?
-            AND date<?
-        GROUP BY date
-        """,
-        (
-            user_id,
-            start,
-            end,
-        ),
-    )
-
-    for row in expense_daily:
-
-        daily[row["date"]][1] = (
+    for row in daily_expenses:
+        daily[row["date"]][1] = float(
             row["total"]
         )
-
-    conn.close()
-
-    dates = sorted(daily)
 
     recent = []
 
     for row in recent_income:
-
         recent.append({
             "date": row["date"],
             "label": INCOME_SOURCES.get(
-                row["label"],
-                row["label"],
+                row["source"],
+                row["source"]
             ),
-            "amount": float(
-                row["amount"]
-            ),
-            "note": row["note"],
+            "amount": float(row["amount"]),
+            "note": "",
             "kind": "income",
         })
 
     for row in recent_expenses:
-
         recent.append({
             "date": row["date"],
             "label": EXPENSE_CATEGORIES.get(
-                row["label"],
-                row["label"],
+                row["category"],
+                row["category"]
             ),
-            "amount": float(
-                row["amount"]
-            ),
-            "note": row["note"],
+            "amount": float(row["amount"]),
+            "note": row["note"] or "",
             "kind": "expense",
         })
 
     recent.sort(
-        key=lambda item: item["date"],
-        reverse=True,
+        key=lambda x: x["date"],
+        reverse=True
     )
 
     return {
         "income": float(income),
         "expenses": float(expenses),
-        "net": float(
-            income - expenses
-        ),
+        "net": float(income - expenses),
 
         "income_by_source": [
             {
                 "label": INCOME_SOURCES.get(
                     row["source"],
-                    row["source"],
+                    row["source"]
                 ),
-                "value": float(
-                    row["total"]
-                ),
+                "value": float(row["total"]),
             }
             for row in income_sources
         ],
@@ -1795,11 +1310,9 @@ def _dashboard(
             {
                 "label": EXPENSE_CATEGORIES.get(
                     row["category"],
-                    row["category"],
+                    row["category"]
                 ),
-                "value": float(
-                    row["total"]
-                ),
+                "value": float(row["total"]),
             }
             for row in expense_categories
         ],
@@ -1810,7 +1323,7 @@ def _dashboard(
                 "income": daily[date][0],
                 "expenses": daily[date][1],
             }
-            for date in dates
+            for date in sorted(daily)
         ],
 
         "recent": recent[:10],
@@ -1838,7 +1351,7 @@ def run_web_server():
             os.path.join(
                 os.path.dirname(__file__),
                 "web",
-                "index.html",
+                "index.html"
             )
         )
 
@@ -1847,18 +1360,17 @@ def run_web_server():
         period: str = "month",
         x_telegram_init_data: str = Header(
             default=""
-        ),
+        )
     ):
 
-        user_id = _telegram_user_id(
+        user_id = telegram_user_id(
             x_telegram_init_data
         )
 
         if not user_id:
-
             raise HTTPException(
                 status_code=401,
-                detail="Invalid Telegram init data",
+                detail="Invalid Telegram init data"
             )
 
         if period not in {
@@ -1868,18 +1380,17 @@ def run_web_server():
             "year",
             "all",
         }:
-
             period = "month"
 
-        return _dashboard(
+        return dashboard_data(
             user_id,
-            period,
+            period
         )
 
     port = int(
         os.environ.get(
             "PORT",
-            "8080",
+            "8080"
         )
     )
 
@@ -1887,18 +1398,17 @@ def run_web_server():
         api,
         host="0.0.0.0",
         port=port,
-        log_level="info",
+        log_level="info"
     )
 
 
-# ============================================================
+# =========================================================
 # MAIN
-# ============================================================
+# =========================================================
 
 def main():
 
     if not BOT_TOKEN:
-
         raise SystemExit(
             "Переменная окружения BOT_TOKEN не задана"
         )
@@ -1906,15 +1416,14 @@ def main():
     init_db()
 
     if WEBAPP_URL:
-
         logger.info(
             "Mini App URL configured: %s",
-            WEBAPP_URL,
+            WEBAPP_URL
         )
 
     threading.Thread(
         target=run_web_server,
-        daemon=True,
+        daemon=True
     ).start()
 
     app = (
@@ -1925,82 +1434,28 @@ def main():
     )
 
 
-    # --------------------------------------------------------
-    # BASIC COMMANDS
-    # --------------------------------------------------------
+    # -----------------------------------------------------
+    # START
+    # -----------------------------------------------------
 
     app.add_handler(
         CommandHandler(
             "start",
-            start,
-        )
-    )
-
-    app.add_handler(
-        MessageHandler(
-            filters.Regex("^📊 Баланс$"),
-            balance_start,
-        )
-    )
-
-    app.add_handler(
-        CallbackQueryHandler(
-            balance_show,
-            pattern="^bal:",
-        )
-    )
-
-    app.add_handler(
-        MessageHandler(
-            filters.Regex("^🗒 Последние записи$"),
-            recent,
+            start
         )
     )
 
 
-    # --------------------------------------------------------
-    # DELETE
-    # --------------------------------------------------------
-
-    app.add_handler(
-        MessageHandler(
-            filters.Regex("^🗑 Удалить запись$"),
-            delete_start,
-        )
-    )
-
-    app.add_handler(
-        CallbackQueryHandler(
-            delete_select,
-            pattern=r"^del:(expense|income):\d+$|^del:cancel$",
-        )
-    )
-
-    app.add_handler(
-        CallbackQueryHandler(
-            delete_confirm,
-            pattern=r"^del_confirm$",
-        )
-    )
-
-    app.add_handler(
-        CallbackQueryHandler(
-            delete_cancel,
-            pattern=r"^del_cancel$",
-        )
-    )
-
-
-    # --------------------------------------------------------
+    # -----------------------------------------------------
     # EXPENSE CONVERSATION
-    # --------------------------------------------------------
+    # -----------------------------------------------------
 
     expense_conv = ConversationHandler(
 
         entry_points=[
-            MessageHandler(
-                filters.Regex("^➕ Расход$"),
-                expense_start,
+            CallbackQueryHandler(
+                menu_expense,
+                pattern="^menu:expense$"
             )
         ],
 
@@ -2009,57 +1464,69 @@ def main():
             EXP_CATEGORY: [
                 CallbackQueryHandler(
                     expense_category,
-                    pattern="^cat:",
-                )
+                    pattern="^cat:"
+                ),
+                CallbackQueryHandler(
+                    menu_cancel,
+                    pattern="^menu:cancel$"
+                ),
             ],
 
             EXP_AMOUNT: [
                 MessageHandler(
-                    filters.TEXT
-                    & ~filters.COMMAND,
-                    expense_amount,
-                )
+                    filters.TEXT & ~filters.COMMAND,
+                    expense_amount
+                ),
+                CallbackQueryHandler(
+                    menu_cancel,
+                    pattern="^menu:cancel$"
+                ),
             ],
 
             EXP_NOTE: [
                 MessageHandler(
-                    filters.TEXT
-                    & ~filters.COMMAND,
-                    expense_note,
-                )
+                    filters.TEXT & ~filters.COMMAND,
+                    expense_note
+                ),
+                CallbackQueryHandler(
+                    menu_cancel,
+                    pattern="^menu:cancel$"
+                ),
             ],
 
             EXP_SHARE: [
                 CallbackQueryHandler(
                     expense_share,
-                    pattern="^share:",
-                )
+                    pattern="^share:"
+                ),
+                CallbackQueryHandler(
+                    menu_cancel,
+                    pattern="^menu:cancel$"
+                ),
             ],
         },
 
         fallbacks=[
             CommandHandler(
                 "cancel",
-                cancel,
+                menu_cancel
             )
         ],
     )
 
-    app.add_handler(
-        expense_conv
-    )
+    app.add_handler(expense_conv)
 
 
-    # --------------------------------------------------------
+    # -----------------------------------------------------
     # INCOME CONVERSATION
-    # --------------------------------------------------------
+    # -----------------------------------------------------
 
     income_conv = ConversationHandler(
 
         entry_points=[
-            MessageHandler(
-                filters.Regex("^➕ Доход$"),
-                income_start,
+            CallbackQueryHandler(
+                menu_income,
+                pattern="^menu:income$"
             )
         ],
 
@@ -2068,75 +1535,150 @@ def main():
             INC_SOURCE: [
                 CallbackQueryHandler(
                     income_source,
-                    pattern="^src:",
-                )
+                    pattern="^src:"
+                ),
+                CallbackQueryHandler(
+                    menu_cancel,
+                    pattern="^menu:cancel$"
+                ),
             ],
 
             INC_UBER_AMOUNT: [
                 MessageHandler(
-                    filters.TEXT
-                    & ~filters.COMMAND,
-                    income_uber_amount,
-                )
+                    filters.TEXT & ~filters.COMMAND,
+                    income_uber_amount
+                ),
+                CallbackQueryHandler(
+                    menu_cancel,
+                    pattern="^menu:cancel$"
+                ),
             ],
 
             INC_HOURS: [
                 MessageHandler(
-                    filters.TEXT
-                    & ~filters.COMMAND,
-                    income_hours,
-                )
+                    filters.TEXT & ~filters.COMMAND,
+                    income_hours
+                ),
+                CallbackQueryHandler(
+                    menu_cancel,
+                    pattern="^menu:cancel$"
+                ),
             ],
 
             INC_RATE: [
                 MessageHandler(
-                    filters.TEXT
-                    & ~filters.COMMAND,
-                    income_rate,
-                )
+                    filters.TEXT & ~filters.COMMAND,
+                    income_rate
+                ),
+                CallbackQueryHandler(
+                    menu_cancel,
+                    pattern="^menu:cancel$"
+                ),
             ],
 
             INC_OFFICIAL_HOURS: [
                 MessageHandler(
-                    filters.TEXT
-                    & ~filters.COMMAND,
-                    income_official_hours,
-                )
+                    filters.TEXT & ~filters.COMMAND,
+                    income_official_hours
+                ),
+                CallbackQueryHandler(
+                    menu_cancel,
+                    pattern="^menu:cancel$"
+                ),
             ],
 
             INC_ZUS: [
                 MessageHandler(
-                    filters.TEXT
-                    & ~filters.COMMAND,
-                    income_zus,
-                )
+                    filters.TEXT & ~filters.COMMAND,
+                    income_zus
+                ),
+                CallbackQueryHandler(
+                    menu_cancel,
+                    pattern="^menu:cancel$"
+                ),
             ],
 
             INC_TAXPCT: [
                 MessageHandler(
-                    filters.TEXT
-                    & ~filters.COMMAND,
-                    income_taxpct,
-                )
+                    filters.TEXT & ~filters.COMMAND,
+                    income_taxpct
+                ),
+                CallbackQueryHandler(
+                    menu_cancel,
+                    pattern="^menu:cancel$"
+                ),
             ],
         },
 
         fallbacks=[
             CommandHandler(
                 "cancel",
-                cancel,
+                menu_cancel
             )
         ],
     )
 
+    app.add_handler(income_conv)
+
+
+    # -----------------------------------------------------
+    # BALANCE
+    # -----------------------------------------------------
+
     app.add_handler(
-        income_conv
+        CallbackQueryHandler(
+            menu_balance,
+            pattern="^menu:balance$"
+        )
+    )
+
+    app.add_handler(
+        CallbackQueryHandler(
+            balance_show,
+            pattern="^bal:"
+        )
     )
 
 
-    logger.info(
-        "Bot started"
+    # -----------------------------------------------------
+    # RECENT
+    # -----------------------------------------------------
+
+    app.add_handler(
+        CallbackQueryHandler(
+            menu_recent,
+            pattern="^menu:recent$"
+        )
     )
+
+
+    # -----------------------------------------------------
+    # HOME
+    # -----------------------------------------------------
+
+    app.add_handler(
+        CallbackQueryHandler(
+            menu_home,
+            pattern="^menu:home$"
+        )
+    )
+
+
+    # -----------------------------------------------------
+    # CANCEL
+    # -----------------------------------------------------
+
+    # Отдельно добавляем cancel,
+    # чтобы он работал в меню.
+    app.add_handler(
+        CallbackQueryHandler(
+            menu_cancel,
+            pattern="^menu:cancel$"
+        )
+    )
+
+
+    logger.info("Financebot started successfully")
 
     app.run_polling()
 
