@@ -12,7 +12,6 @@ from telegram import (
     Update,
     InlineKeyboardButton,
     InlineKeyboardMarkup,
-    KeyboardButton,
     WebAppInfo,
 )
 from telegram.ext import (
@@ -1531,13 +1530,23 @@ async def balance_show(
 # =========================================================
 
 def telegram_user_id(init_data: str):
+    """
+    Проверяет Telegram Web App initData
+    и возвращает Telegram user_id.
+    """
 
-    if not init_data or not BOT_TOKEN:
+    if not init_data:
+        logger.warning("Telegram initData is empty")
+        return None
+
+    if not BOT_TOKEN:
+        logger.error("BOT_TOKEN is not configured")
         return None
 
     try:
-
         from urllib.parse import parse_qsl
+
+        init_data = init_data.strip()
 
         pairs = dict(
             parse_qsl(
@@ -1552,22 +1561,25 @@ def telegram_user_id(init_data: str):
         )
 
         if not received_hash:
+            logger.warning(
+                "Telegram initData does not contain hash"
+            )
             return None
 
-        data_check = "\n".join(
+        data_check_string = "\n".join(
             f"{key}={pairs[key]}"
-            for key in sorted(pairs)
+            for key in sorted(pairs.keys())
         )
 
-        secret = hmac.new(
+        secret_key = hmac.new(
             b"WebAppData",
-            BOT_TOKEN.encode(),
+            BOT_TOKEN.strip().encode("utf-8"),
             hashlib.sha256
         ).digest()
 
         calculated_hash = hmac.new(
-            secret,
-            data_check.encode(),
+            secret_key,
+            data_check_string.encode("utf-8"),
             hashlib.sha256
         ).hexdigest()
 
@@ -1575,23 +1587,51 @@ def telegram_user_id(init_data: str):
             calculated_hash,
             received_hash
         ):
-            return None
-
-        user = json.loads(
-            pairs.get(
-                "user",
-                "{}"
+            logger.warning(
+                "Telegram initData hash mismatch"
             )
-        )
 
-        if not user.get("id"):
+            logger.info(
+                "Received hash: %s",
+                received_hash[:12] + "..."
+            )
+
+            logger.info(
+                "Calculated hash: %s",
+                calculated_hash[:12] + "..."
+            )
+
             return None
 
-        return int(
-            user["id"]
+        user_raw = pairs.get("user")
+
+        if not user_raw:
+            logger.warning(
+                "Telegram initData does not contain user"
+            )
+            return None
+
+        user = json.loads(user_raw)
+
+        user_id = user.get("id")
+
+        if not user_id:
+            logger.warning(
+                "Telegram user id is missing"
+            )
+            return None
+
+        logger.info(
+            "Telegram WebApp authenticated: user_id=%s",
+            user_id
         )
+
+        return int(user_id)
 
     except Exception:
+        logger.exception(
+            "Failed to validate Telegram initData"
+        )
         return None
 
 
@@ -1600,9 +1640,7 @@ def dashboard_data(
     period: str
 ):
 
-    start, end = period_bounds(
-        period
-    )
+    start, end = period_bounds(period)
 
     conn = db()
 
@@ -1867,7 +1905,7 @@ def run_web_server():
 
     from fastapi import (
         FastAPI,
-        Header,
+        Request,
         HTTPException,
     )
 
@@ -1890,17 +1928,42 @@ def run_web_server():
 
     @api.get("/api/dashboard")
     def dashboard(
+        request: Request,
         period: str = "month",
-        x_telegram_init_data: str = Header(
-            default=""
-        )
     ):
 
+        init_data = request.headers.get(
+            "X-Telegram-Init-Data",
+            ""
+        )
+
+        # Дополнительный вариант авторизации:
+        # Authorization: tma <initData>
+        if not init_data:
+
+            authorization = request.headers.get(
+                "Authorization",
+                ""
+            )
+
+            if authorization.startswith("tma "):
+                init_data = authorization[4:]
+
+        logger.info(
+            "Dashboard request: period=%s, telegram_init_data=%s",
+            period,
+            "present" if init_data else "EMPTY"
+        )
+
         user_id = telegram_user_id(
-            x_telegram_init_data
+            init_data
         )
 
         if not user_id:
+
+            logger.warning(
+                "Dashboard authorization failed"
+            )
 
             raise HTTPException(
                 status_code=401,
@@ -1922,11 +1985,54 @@ def run_web_server():
             period
         )
 
+    # =====================================================
+    # DEBUG
+    # =====================================================
+
+    @api.get("/api/debug")
+    def debug(request: Request):
+
+        init_data = request.headers.get(
+            "X-Telegram-Init-Data",
+            ""
+        )
+
+        authorization = request.headers.get(
+            "Authorization",
+            ""
+        )
+
+        return {
+            "telegram_header_present": bool(
+                init_data
+            ),
+            "authorization_present": bool(
+                authorization
+            ),
+            "telegram_header_length": len(
+                init_data
+            ),
+            "authorization_prefix": (
+                authorization[:10]
+                if authorization
+                else ""
+            ),
+        }
+
+    # =====================================================
+    # SERVER
+    # =====================================================
+
     port = int(
         os.environ.get(
             "PORT",
             "8080"
         )
+    )
+
+    logger.info(
+        "Starting FastAPI server on port %s",
+        port
     )
 
     uvicorn.run(
@@ -1969,7 +2075,6 @@ def main():
         .build()
     )
 
-
     # -----------------------------------------------------
     # START
     # -----------------------------------------------------
@@ -1980,7 +2085,6 @@ def main():
             start
         )
     )
-
 
     # -----------------------------------------------------
     # EXPENSE CONVERSATION
@@ -2045,7 +2149,6 @@ def main():
     app.add_handler(
         expense_conv
     )
-
 
     # -----------------------------------------------------
     # INCOME CONVERSATION
@@ -2128,7 +2231,6 @@ def main():
         income_conv
     )
 
-
     # -----------------------------------------------------
     # BALANCE
     # -----------------------------------------------------
@@ -2147,7 +2249,6 @@ def main():
         )
     )
 
-
     # -----------------------------------------------------
     # RECENT
     # -----------------------------------------------------
@@ -2158,7 +2259,6 @@ def main():
             pattern="^menu:recent$"
         )
     )
-
 
     # -----------------------------------------------------
     # DELETE
@@ -2192,7 +2292,6 @@ def main():
         )
     )
 
-
     # -----------------------------------------------------
     # HOME
     # -----------------------------------------------------
@@ -2204,7 +2303,6 @@ def main():
         )
     )
 
-
     # -----------------------------------------------------
     # CANCEL
     # -----------------------------------------------------
@@ -2215,7 +2313,6 @@ def main():
             pattern="^menu:cancel$"
         )
     )
-
 
     logger.info(
         "Financebot started successfully"
