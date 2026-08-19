@@ -2,6 +2,7 @@
 <html lang="ru">
 <head>
   <meta charset="utf-8">
+
   <meta
     name="viewport"
     content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"
@@ -61,8 +62,6 @@
       max-width: 760px;
       margin: 0 auto;
     }
-
-    /* ---------- HEADER ---------- */
 
     .top {
       display: flex;
@@ -127,8 +126,6 @@
       }
     }
 
-    /* ---------- HERO ---------- */
-
     .hero {
       position: relative;
       overflow: hidden;
@@ -178,10 +175,7 @@
       letter-spacing: -1px;
     }
 
-    .hero-balance.negative {
-      color: #fff;
-    }
-
+    .hero-balance.negative,
     .hero-balance.positive {
       color: #fff;
     }
@@ -218,8 +212,6 @@
       font-weight: 800;
     }
 
-    /* ---------- QUICK STATS ---------- */
-
     .quick-grid {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
@@ -253,8 +245,6 @@
       text-overflow: ellipsis;
     }
 
-    /* ---------- CARDS ---------- */
-
     .card {
       background: var(--card);
       border-radius: 22px;
@@ -283,8 +273,6 @@
       font-size: 12px;
     }
 
-    /* ---------- CHART ---------- */
-
     .chart-wrap {
       position: relative;
       height: 255px;
@@ -303,15 +291,11 @@
       font-size: 14px;
     }
 
-    /* ---------- TWO COLUMN ---------- */
-
     .two-columns {
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 14px;
     }
-
-    /* ---------- LIST ---------- */
 
     .list {
       margin-top: 5px;
@@ -376,8 +360,6 @@
       margin-top: 3px;
     }
 
-    /* ---------- EMPTY ---------- */
-
     .empty {
       padding: 25px 10px;
       text-align: center;
@@ -399,8 +381,6 @@
       font-size: 13px;
     }
 
-    /* ---------- PROGRESS ---------- */
-
     .progress {
       height: 7px;
       background: rgba(128,128,128,.14);
@@ -415,8 +395,6 @@
       background: var(--accent);
       transition: width .3s ease;
     }
-
-    /* ---------- LOADING / ERROR ---------- */
 
     .loading {
       text-align: center;
@@ -440,6 +418,17 @@
       line-height: 1.45;
     }
 
+    .error-code {
+      margin-top: 10px;
+      padding: 10px;
+      background: rgba(0,0,0,.18);
+      border-radius: 12px;
+      font-family: monospace;
+      font-size: 12px;
+      overflow-wrap: anywhere;
+      color: #ffd0cd;
+    }
+
     .retry {
       margin-top: 12px;
       border: 0;
@@ -447,9 +436,8 @@
       color: var(--text);
       padding: 10px 14px;
       border-radius: 12px;
+      cursor: pointer;
     }
-
-    /* ---------- FOOTER ---------- */
 
     .footer {
       text-align: center;
@@ -458,8 +446,6 @@
       padding: 5px 0 10px;
       opacity: .65;
     }
-
-    /* ---------- MOBILE ---------- */
 
     @media (max-width: 520px) {
 
@@ -539,11 +525,11 @@
 
 <div class="app">
 
-  <!-- HEADER -->
   <header class="top">
 
     <div>
       <div class="title">💰 Финансы</div>
+
       <div class="subtitle" id="userLine">
         Личная аналитика
       </div>
@@ -572,17 +558,21 @@
 
   </header>
 
-
-  <!-- APP -->
   <main id="app">
 
     <div class="loading">
-      <div class="loading-spinner">↻</div>
-      <div>Загружаю статистику…</div>
+
+      <div class="loading-spinner">
+        ↻
+      </div>
+
+      <div>
+        Загружаю статистику…
+      </div>
+
     </div>
 
   </main>
-
 
   <div class="footer">
     Financebot
@@ -594,23 +584,51 @@
 <script>
 
   /* =========================================================
-     TELEGRAM
+     TELEGRAM WEB APP
   ========================================================= */
 
-  const tg = window.Telegram?.WebApp;
+  const tg = window.Telegram?.WebApp || null;
 
-  if (tg) {
-    tg.ready();
-    tg.expand();
+  function initTelegram() {
+
+    if (!tg) {
+      console.warn(
+        'Telegram WebApp SDK not available'
+      );
+
+      return;
+    }
 
     try {
-      tg.setHeaderColor?.(
-        getComputedStyle(document.documentElement)
-          .getPropertyValue('--bg')
-          .trim()
+      tg.ready();
+      tg.expand();
+    } catch (error) {
+      console.error(
+        'Telegram init error:',
+        error
       );
+    }
+
+    try {
+
+      const bg =
+        getComputedStyle(
+          document.documentElement
+        )
+        .getPropertyValue('--bg')
+        .trim();
+
+      if (bg) {
+        tg.setHeaderColor?.(bg);
+        tg.setBackgroundColor?.(bg);
+      }
+
     } catch (_) {}
+
   }
+
+
+  initTelegram();
 
 
   /* =========================================================
@@ -672,11 +690,13 @@
 
 
   const periodNames = {
+
     day: 'сегодня',
     week: 'текущую неделю',
     month: 'текущий месяц',
     year: 'текущий год',
     all: 'всё время'
+
   };
 
 
@@ -706,30 +726,27 @@
       return '';
     }
 
-    const parts = dateString.split('-');
+    const parts =
+      dateString.split('-');
 
     if (parts.length !== 3) {
       return dateString;
     }
 
-    return parts[2] + '.' + parts[1];
+    return (
+      parts[2] +
+      '.' +
+      parts[1]
+    );
 
   }
 
 
   function dateToShort(dateString) {
 
-    if (!dateString) {
-      return '';
-    }
-
-    const parts = dateString.split('-');
-
-    if (parts.length !== 3) {
-      return dateString;
-    }
-
-    return parts[2] + '.' + parts[1];
+    return dateToLabel(
+      dateString
+    );
 
   }
 
@@ -738,26 +755,44 @@
 
     const now = new Date();
 
-    now.setHours(0, 0, 0, 0);
+    now.setHours(
+      0,
+      0,
+      0,
+      0
+    );
 
     let start = new Date(now);
     let end = new Date(now);
 
     if (period === 'day') {
 
-      end.setDate(end.getDate() + 1);
+      end.setDate(
+        end.getDate() + 1
+      );
 
     }
 
     else if (period === 'week') {
 
-      const day = start.getDay();
-      const mondayOffset = day === 0 ? -6 : 1 - day;
+      const day =
+        start.getDay();
 
-      start.setDate(start.getDate() + mondayOffset);
+      const mondayOffset =
+        day === 0
+          ? -6
+          : 1 - day;
+
+      start.setDate(
+        start.getDate() +
+        mondayOffset
+      );
 
       end = new Date(start);
-      end.setDate(end.getDate() + 7);
+
+      end.setDate(
+        end.getDate() + 7
+      );
 
     }
 
@@ -799,36 +834,45 @@
 
     }
 
-    return { start, end };
+    return {
+      start,
+      end
+    };
 
   }
 
 
   function localISO(date) {
 
-    const y = date.getFullYear();
-    const m = String(date.getMonth() + 1).padStart(2, '0');
-    const d = String(date.getDate()).padStart(2, '0');
+    const y =
+      date.getFullYear();
+
+    const m =
+      String(
+        date.getMonth() + 1
+      ).padStart(2, '0');
+
+    const d =
+      String(
+        date.getDate()
+      ).padStart(2, '0');
 
     return `${y}-${m}-${d}`;
 
   }
 
 
-  /*
-    Backend отдаёт только дни, где были операции.
-
-    Здесь мы достраиваем нулевые дни,
-    чтобы график выглядел нормально.
-  */
-
-  function completeDailyData(rows, period) {
+  function completeDailyData(
+    rows,
+    period
+  ) {
 
     if (period === 'all') {
       return rows || [];
     }
 
-    const range = getDateRange(period);
+    const range =
+      getDateRange(period);
 
     if (!range) {
       return rows || [];
@@ -839,31 +883,104 @@
     (rows || []).forEach(row => {
 
       map[row.date] = {
-        income: Number(row.income || 0),
-        expenses: Number(row.expenses || 0)
+
+        income:
+          Number(
+            row.income || 0
+          ),
+
+        expenses:
+          Number(
+            row.expenses || 0
+          )
+
       };
 
     });
 
+
     const result = [];
 
-    let cursor = new Date(range.start);
+    let cursor =
+      new Date(
+        range.start
+      );
 
-    while (cursor < range.end) {
 
-      const key = localISO(cursor);
+    while (
+      cursor <
+      range.end
+    ) {
+
+      const key =
+        localISO(cursor);
+
 
       result.push({
+
         date: key,
-        income: map[key]?.income || 0,
-        expenses: map[key]?.expenses || 0
+
+        income:
+          map[key]?.income || 0,
+
+        expenses:
+          map[key]?.expenses || 0
+
       });
 
-      cursor.setDate(cursor.getDate() + 1);
+
+      cursor.setDate(
+        cursor.getDate() + 1
+      );
 
     }
 
+
     return result;
+
+  }
+
+
+  /* =========================================================
+     TELEGRAM AUTH DIAGNOSTICS
+  ========================================================= */
+
+  function getTelegramInitData() {
+
+    if (!tg) {
+      return '';
+    }
+
+    const initData =
+      typeof tg.initData === 'string'
+        ? tg.initData
+        : '';
+
+    console.log(
+      '[Financebot] Telegram WebApp exists:',
+      true
+    );
+
+    console.log(
+      '[Financebot] initData length:',
+      initData.length
+    );
+
+    console.log(
+      '[Financebot] initData present:',
+      Boolean(initData)
+    );
+
+    if (tg.initDataUnsafe) {
+
+      console.log(
+        '[Financebot] initDataUnsafe user:',
+        tg.initDataUnsafe.user || null
+      );
+
+    }
+
+    return initData;
 
   }
 
@@ -875,86 +992,296 @@
   async function load() {
 
     const period =
-      document.getElementById('period').value;
+      document.getElementById(
+        'period'
+      ).value;
+
 
     const refreshButton =
-      document.getElementById('refresh');
+      document.getElementById(
+        'refresh'
+      );
 
-    refreshButton.classList.add('loading');
+
+    refreshButton
+      .classList
+      .add('loading');
+
 
     destroyCharts();
 
-    document.getElementById('app').innerHTML = `
+
+    document.getElementById(
+      'app'
+    ).innerHTML = `
+
       <div class="loading">
-        <div class="loading-spinner">↻</div>
-        <div>Обновляю статистику…</div>
+
+        <div class="loading-spinner">
+          ↻
+        </div>
+
+        <div>
+          Обновляю статистику…
+        </div>
+
       </div>
+
     `;
 
+
+    const initData =
+      getTelegramInitData();
+
+
+    if (!tg) {
+
+      showError(
+        'Telegram WebApp SDK не загрузился.'
+      );
+
+      refreshButton
+        .classList
+        .remove('loading');
+
+      return;
+
+    }
+
+
+    if (!initData) {
+
+      showError(
+        'Telegram не передал initData. '
+        +
+        'Открой приложение именно кнопкой '
+        +
+        '«📱 Открыть приложение» внутри Financebot.'
+      );
+
+      refreshButton
+        .classList
+        .remove('loading');
+
+      return;
+
+    }
+
+
     const headers = {
+
       'X-Telegram-Init-Data':
-        tg?.initData || ''
+        initData
+
     };
+
 
     try {
 
-      const response = await fetch(
-        '/api/dashboard?period=' +
-        encodeURIComponent(period),
-        {
-          headers,
-          cache: 'no-store'
-        }
+      const response =
+        await fetch(
+          '/api/dashboard?period=' +
+          encodeURIComponent(
+            period
+          ),
+          {
+            method: 'GET',
+
+            headers,
+
+            cache: 'no-store'
+
+          }
+        );
+
+
+      const text =
+        await response.text();
+
+
+      let data = null;
+
+
+      try {
+
+        data =
+          text
+            ? JSON.parse(text)
+            : null;
+
+      } catch (_) {}
+
+
+      console.log(
+        '[Financebot] API status:',
+        response.status
       );
+
 
       if (!response.ok) {
 
-        if (response.status === 401) {
+        if (
+          response.status === 401
+        ) {
 
           throw new Error(
-            'Открой Mini App из Telegram, а не обычной вкладкой.'
+            'Сервер получил запрос, '
+            +
+            'но Telegram initData не прошёл проверку. '
+            +
+            'Проверь Railway Logs.'
           );
 
         }
 
+
         throw new Error(
+          data?.detail ||
           'Не удалось получить данные.'
         );
 
       }
 
-      const data = await response.json();
 
-      currentData = data;
+      if (!data) {
 
-      render(data, period);
+        throw new Error(
+          'Сервер вернул пустой ответ.'
+        );
+
+      }
+
+
+      currentData =
+        data;
+
+
+      updateUserLine();
+
+
+      render(
+        data,
+        period
+      );
 
     }
+
 
     catch (error) {
 
-      document.getElementById('app').innerHTML = `
-        <div class="error">
-          <div>
-            ⚠️ ${esc(error.message)}
-          </div>
+      console.error(
+        '[Financebot] Load error:',
+        error
+      );
 
-          <button
-            class="retry"
-            onclick="load()"
-          >
-            Попробовать снова
-          </button>
-        </div>
-      `;
+
+      showError(
+        error.message ||
+        'Неизвестная ошибка.'
+      );
 
     }
+
 
     finally {
 
-      refreshButton.classList.remove('loading');
+      refreshButton
+        .classList
+        .remove('loading');
 
     }
+
+  }
+
+
+  function updateUserLine() {
+
+    const line =
+      document.getElementById(
+        'userLine'
+      );
+
+    if (!line) {
+      return;
+    }
+
+
+    const user =
+      tg?.initDataUnsafe?.user;
+
+
+    if (user?.first_name) {
+
+      line.textContent =
+        `${user.first_name}, твоя аналитика`;
+
+    }
+
+    else {
+
+      line.textContent =
+        'Личная аналитика';
+
+    }
+
+  }
+
+
+  function showError(message) {
+
+    const app =
+      document.getElementById(
+        'app'
+      );
+
+
+    app.innerHTML = `
+
+      <div class="error">
+
+        <div>
+          ⚠️ ${esc(message)}
+        </div>
+
+        <div class="error-code">
+
+          Telegram:
+          ${
+            tg
+              ? 'WebApp доступен'
+              : 'WebApp НЕ доступен'
+          }
+
+          <br>
+
+          initData:
+          ${
+            tg?.initData
+              ? 'получен'
+              : 'пустой'
+          }
+
+          <br>
+
+          Длина initData:
+          ${
+            tg?.initData?.length || 0
+          }
+
+        </div>
+
+
+        <button
+          class="retry"
+          type="button"
+          onclick="load()"
+        >
+          Попробовать снова
+        </button>
+
+      </div>
+
+    `;
 
   }
 
@@ -963,25 +1290,48 @@
      RENDER
   ========================================================= */
 
-  function render(data, period) {
+  function render(
+    data,
+    period
+  ) {
 
     const income =
-      Number(data.income || 0);
+      Number(
+        data.income || 0
+      );
+
 
     const expenses =
-      Number(data.expenses || 0);
+      Number(
+        data.expenses || 0
+      );
+
 
     const net =
-      Number(data.net ?? income - expenses);
+      Number(
+        data.net ??
+        income - expenses
+      );
+
 
     const savingsPercent =
       income > 0
-        ? ((net / income) * 100)
+        ? (
+            net /
+            income *
+            100
+          )
         : 0;
+
 
     const expensePercent =
       income > 0
-        ? Math.min((expenses / income) * 100, 100)
+        ? Math.min(
+            expenses /
+            income *
+            100,
+            100
+          )
         : 0;
 
 
@@ -992,9 +1342,9 @@
       );
 
 
-    document.getElementById('app').innerHTML = `
-
-      <!-- HERO -->
+    document.getElementById(
+      'app'
+    ).innerHTML = `
 
       <section class="hero">
 
@@ -1002,14 +1352,34 @@
           Баланс за выбранный период
         </div>
 
-        <div class="hero-balance ${
-          net < 0 ? 'negative' : 'positive'
-        }">
-          ${net < 0 ? '−' : ''}${money(Math.abs(net))}
+
+        <div
+          class="
+            hero-balance
+            ${
+              net < 0
+                ? 'negative'
+                : 'positive'
+            }
+          "
+        >
+          ${
+            net < 0
+              ? '−'
+              : ''
+          }${money(
+            Math.abs(net)
+          )}
         </div>
 
+
         <div class="hero-period">
-          ${esc(periodNames[period] || period)}
+          ${
+            esc(
+              periodNames[period] ||
+              period
+            )
+          }
         </div>
 
 
@@ -1045,8 +1415,6 @@
       </section>
 
 
-      <!-- QUICK STATS -->
-
       <section class="quick-grid">
 
         <div class="quick-card">
@@ -1059,9 +1427,16 @@
             Осталось
           </div>
 
-          <div class="quick-value ${
-            net >= 0 ? 'income' : 'expense'
-          }">
+          <div
+            class="
+              quick-value
+              ${
+                net >= 0
+                  ? 'income'
+                  : 'expense'
+              }
+            "
+          >
             ${money(net)}
           </div>
 
@@ -1079,7 +1454,9 @@
           </div>
 
           <div class="quick-value">
-            ${number(expensePercent)}%
+            ${number(
+              expensePercent
+            )}%
           </div>
 
         </div>
@@ -1095,12 +1472,19 @@
             Сбережения
           </div>
 
-          <div class="quick-value ${
-            savingsPercent >= 0
-              ? 'income'
-              : 'expense'
-          }">
-            ${number(savingsPercent)}%
+          <div
+            class="
+              quick-value
+              ${
+                savingsPercent >= 0
+                  ? 'income'
+                  : 'expense'
+              }
+            "
+          >
+            ${number(
+              savingsPercent
+            )}%
           </div>
 
         </div>
@@ -1108,13 +1492,12 @@
       </section>
 
 
-      <!-- DAILY CHART -->
-
       <section class="card">
 
         <div class="card-header">
 
           <div>
+
             <h2 class="card-title">
               📈 Доходы и расходы
             </h2>
@@ -1122,9 +1505,11 @@
             <div class="card-subtitle">
               По дням
             </div>
+
           </div>
 
         </div>
+
 
         <div class="chart-wrap">
 
@@ -1143,18 +1528,15 @@
       </section>
 
 
-      <!-- INCOME / EXPENSE -->
-
       <div class="two-columns">
 
-
-        <!-- INCOME -->
 
         <section class="card">
 
           <div class="card-header">
 
             <div>
+
               <h2 class="card-title">
                 💰 Доходы
               </h2>
@@ -1162,9 +1544,11 @@
               <div class="card-subtitle">
                 По источникам
               </div>
+
             </div>
 
           </div>
+
 
           <div class="chart-wrap small">
 
@@ -1180,18 +1564,18 @@
 
           </div>
 
+
           <div id="incomeList"></div>
 
         </section>
 
-
-        <!-- EXPENSE -->
 
         <section class="card">
 
           <div class="card-header">
 
             <div>
+
               <h2 class="card-title">
                 💸 Расходы
               </h2>
@@ -1199,9 +1583,11 @@
               <div class="card-subtitle">
                 По категориям
               </div>
+
             </div>
 
           </div>
+
 
           <div class="chart-wrap small">
 
@@ -1217,6 +1603,7 @@
 
           </div>
 
+
           <div id="expenseList"></div>
 
         </section>
@@ -1225,13 +1612,12 @@
       </div>
 
 
-      <!-- RECENT -->
-
       <section class="card">
 
         <div class="card-header">
 
           <div>
+
             <h2 class="card-title">
               🧾 Последние операции
             </h2>
@@ -1239,9 +1625,11 @@
             <div class="card-subtitle">
               Самые свежие записи
             </div>
+
           </div>
 
         </div>
+
 
         <div id="recentList"></div>
 
@@ -1252,13 +1640,16 @@
 
     drawDaily(daily);
 
+
     drawIncome(
       data.income_by_source || []
     );
 
+
     drawExpenses(
       data.expenses_by_category || []
     );
+
 
     renderRecent(
       data.recent || []
@@ -1268,14 +1659,20 @@
 
 
   /* =========================================================
-     CHART OPTIONS
+     CHARTS
   ========================================================= */
 
   function chartTextColor() {
 
-    return getComputedStyle(
-      document.documentElement
-    ).getPropertyValue('--hint') || '#999';
+    return (
+      getComputedStyle(
+        document.documentElement
+      )
+      .getPropertyValue(
+        '--hint'
+      ) ||
+      '#999'
+    );
 
   }
 
@@ -1292,34 +1689,42 @@
     x: {
 
       grid: {
-        color: chartGridColor()
+        color:
+          chartGridColor()
       },
 
       ticks: {
-        color: chartTextColor(),
+
+        color:
+          chartTextColor(),
+
         maxRotation: 0,
+
         autoSkip: true,
+
         maxTicksLimit: 7
+
       }
 
     },
+
 
     y: {
 
       beginAtZero: true,
 
       grid: {
-        color: chartGridColor()
+        color:
+          chartGridColor()
       },
 
       ticks: {
-        color: chartTextColor(),
 
-        callback: value => {
+        color:
+          chartTextColor(),
 
-          return value + ' zł';
-
-        }
+        callback: value =>
+          value + ' zł'
 
       }
 
@@ -1328,156 +1733,197 @@
   };
 
 
-  /* =========================================================
-     DAILY CHART
-  ========================================================= */
-
   function drawDaily(rows) {
 
     const canvas =
-      document.getElementById('dailyChart');
+      document.getElementById(
+        'dailyChart'
+      );
+
 
     if (!canvas) {
       return;
     }
 
-    dailyChart = new Chart(
-      canvas,
-      {
-        type: 'line',
 
-        data: {
+    dailyChart =
+      new Chart(
+        canvas,
+        {
 
-          labels:
-            rows.map(row =>
-              dateToLabel(row.date)
-            ),
+          type: 'line',
 
-          datasets: [
 
-            {
-              label: 'Доходы',
+          data: {
 
-              data:
-                rows.map(row =>
-                  Number(row.income || 0)
-                ),
+            labels:
+              rows.map(
+                row =>
+                  dateToLabel(
+                    row.date
+                  )
+              ),
 
-              borderColor: '#0a84ff',
 
-              backgroundColor:
-                'rgba(10,132,255,.12)',
+            datasets: [
 
-              pointBackgroundColor: '#0a84ff',
+              {
 
-              pointRadius: 3,
+                label: 'Доходы',
 
-              pointHoverRadius: 6,
+                data:
+                  rows.map(
+                    row =>
+                      Number(
+                        row.income || 0
+                      )
+                  ),
 
-              borderWidth: 3,
+                borderColor:
+                  '#0a84ff',
 
-              tension: .35,
+                backgroundColor:
+                  'rgba(10,132,255,.12)',
 
-              fill: true
-            },
+                pointBackgroundColor:
+                  '#0a84ff',
 
-            {
-              label: 'Расходы',
+                pointRadius: 3,
 
-              data:
-                rows.map(row =>
-                  Number(row.expenses || 0)
-                ),
+                pointHoverRadius: 6,
 
-              borderColor: '#ff453a',
+                borderWidth: 3,
 
-              backgroundColor:
-                'rgba(255,69,58,.08)',
+                tension: .35,
 
-              pointBackgroundColor: '#ff453a',
+                fill: true
 
-              pointRadius: 3,
+              },
 
-              pointHoverRadius: 6,
 
-              borderWidth: 3,
+              {
 
-              tension: .35,
+                label: 'Расходы',
 
-              fill: true
-            }
+                data:
+                  rows.map(
+                    row =>
+                      Number(
+                        row.expenses || 0
+                      )
+                  ),
 
-          ]
+                borderColor:
+                  '#ff453a',
 
-        },
+                backgroundColor:
+                  'rgba(255,69,58,.08)',
 
-        options: {
+                pointBackgroundColor:
+                  '#ff453a',
 
-          responsive: true,
+                pointRadius: 3,
 
-          maintainAspectRatio: false,
+                pointHoverRadius: 6,
 
-          interaction: {
-            mode: 'index',
-            intersect: false
-          },
+                borderWidth: 3,
 
-          plugins: {
+                tension: .35,
 
-            legend: {
+                fill: true
 
-              position: 'top',
-
-              labels: {
-                color: chartTextColor(),
-                usePointStyle: true,
-                boxWidth: 8,
-                padding: 15
               }
 
+            ]
+
+          },
+
+
+          options: {
+
+            responsive: true,
+
+            maintainAspectRatio: false,
+
+            interaction: {
+
+              mode: 'index',
+
+              intersect: false
+
             },
 
-            tooltip: {
 
-              callbacks: {
+            plugins: {
 
-                label: context => {
+              legend: {
 
-                  return (
-                    context.dataset.label +
-                    ': ' +
-                    money(context.parsed.y)
-                  );
+                position: 'top',
+
+                labels: {
+
+                  color:
+                    chartTextColor(),
+
+                  usePointStyle: true,
+
+                  boxWidth: 8,
+
+                  padding: 15
+
+                }
+
+              },
+
+
+              tooltip: {
+
+                callbacks: {
+
+                  label:
+                    context => {
+
+                      return (
+                        context.dataset.label +
+                        ': ' +
+                        money(
+                          context.parsed.y
+                        )
+                      );
+
+                    }
 
                 }
 
               }
 
-            }
+            },
 
-          },
 
-          scales: commonScales
+            scales:
+              commonScales
+
+          }
 
         }
-
-      }
-    );
+      );
 
   }
 
-
-  /* =========================================================
-     INCOME CHART
-  ========================================================= */
 
   function drawIncome(rows) {
 
     const canvas =
-      document.getElementById('incomeChart');
+      document.getElementById(
+        'incomeChart'
+      );
+
 
     const list =
-      document.getElementById('incomeList');
+      document.getElementById(
+        'incomeList'
+      );
+
 
     if (!canvas) {
 
@@ -1491,72 +1937,98 @@
 
 
     const labels =
-      rows.map(row => row.label);
+      rows.map(
+        row =>
+          row.label
+      );
+
 
     const values =
-      rows.map(row => Number(row.value || 0));
+      rows.map(
+        row =>
+          Number(
+            row.value || 0
+          )
+      );
 
 
-    incomeChart = new Chart(
-      canvas,
-      {
-        type: 'doughnut',
+    incomeChart =
+      new Chart(
+        canvas,
+        {
 
-        data: {
+          type: 'doughnut',
 
-          labels,
 
-          datasets: [
+          data: {
 
-            {
-              data: values,
+            labels,
 
-              backgroundColor: [
-                '#0a84ff',
-                '#35c759',
-                '#ff9f0a',
-                '#af52de',
-                '#5e5ce6'
-              ],
+            datasets: [
 
-              borderWidth: 3,
+              {
 
-              borderColor:
-                getComputedStyle(
-                  document.documentElement
-                ).getPropertyValue('--card')
+                data: values,
 
-            }
+                backgroundColor: [
 
-          ]
+                  '#0a84ff',
+                  '#35c759',
+                  '#ff9f0a',
+                  '#af52de',
+                  '#5e5ce6'
 
-        },
+                ],
 
-        options: {
+                borderWidth: 3,
 
-          responsive: true,
+                borderColor:
+                  getComputedStyle(
+                    document.documentElement
+                  )
+                  .getPropertyValue(
+                    '--card'
+                  )
 
-          maintainAspectRatio: false,
+              }
 
-          cutout: '66%',
+            ]
 
-          plugins: {
+          },
 
-            legend: {
-              display: false
-            },
 
-            tooltip: {
+          options: {
 
-              callbacks: {
+            responsive: true,
 
-                label: context => {
+            maintainAspectRatio: false,
 
-                  return (
-                    context.label +
-                    ': ' +
-                    money(context.parsed)
-                  );
+            cutout: '66%',
+
+
+            plugins: {
+
+              legend: {
+                display: false
+              },
+
+
+              tooltip: {
+
+                callbacks: {
+
+                  label:
+                    context => {
+
+                      return (
+                        context.label +
+                        ': ' +
+                        money(
+                          context.parsed
+                        )
+                      );
+
+                    }
 
                 }
 
@@ -1567,9 +2039,7 @@
           }
 
         }
-
-      }
-    );
+      );
 
 
     const total =
@@ -1582,71 +2052,88 @@
 
     list.innerHTML =
       rows.length
-        ? rows.map(row => {
+        ? rows.map(
+            row => {
 
-            const value =
-              Number(row.value || 0);
+              const value =
+                Number(
+                  row.value || 0
+                );
 
-            const percent =
-              total > 0
-                ? Math.round(
-                    value / total * 100
-                  )
-                : 0;
 
-            return `
+              const percent =
+                total > 0
+                  ? Math.round(
+                      value /
+                      total *
+                      100
+                    )
+                  : 0;
 
-              <div class="row">
 
-                <div class="row-left">
+              return `
 
-                  <div class="row-title">
-                    ${esc(row.label)}
+                <div class="row">
+
+                  <div class="row-left">
+
+                    <div class="row-title">
+                      ${esc(
+                        row.label
+                      )}
+                    </div>
+
+
+                    <div class="progress">
+
+                      <div
+                        class="progress-bar"
+                        style="
+                          width:${percent}%
+                        "
+                      ></div>
+
+                    </div>
+
                   </div>
 
-                  <div class="progress">
-                    <div
-                      class="progress-bar"
-                      style="width:${percent}%"
-                    ></div>
+
+                  <div class="row-right">
+
+                    <div class="amount income">
+                      ${money(value)}
+                    </div>
+
+                    <div class="category-percent">
+                      ${percent}%
+                    </div>
+
                   </div>
 
                 </div>
 
-                <div class="row-right">
+              `;
 
-                  <div class="amount income">
-                    ${money(value)}
-                  </div>
-
-                  <div class="category-percent">
-                    ${percent}%
-                  </div>
-
-                </div>
-
-              </div>
-
-            `;
-
-          }).join('')
-
+            }
+          ).join('')
         : '';
 
   }
 
-
-  /* =========================================================
-     EXPENSE CHART
-  ========================================================= */
 
   function drawExpenses(rows) {
 
     const canvas =
-      document.getElementById('expenseChart');
+      document.getElementById(
+        'expenseChart'
+      );
+
 
     const list =
-      document.getElementById('expenseList');
+      document.getElementById(
+        'expenseList'
+      );
+
 
     if (!canvas) {
 
@@ -1660,73 +2147,99 @@
 
 
     const labels =
-      rows.map(row => row.label);
+      rows.map(
+        row =>
+          row.label
+      );
+
 
     const values =
-      rows.map(row => Number(row.value || 0));
+      rows.map(
+        row =>
+          Number(
+            row.value || 0
+          )
+      );
 
 
-    expenseChart = new Chart(
-      canvas,
-      {
-        type: 'doughnut',
+    expenseChart =
+      new Chart(
+        canvas,
+        {
 
-        data: {
+          type: 'doughnut',
 
-          labels,
 
-          datasets: [
+          data: {
 
-            {
-              data: values,
+            labels,
 
-              backgroundColor: [
-                '#ff453a',
-                '#ff9f0a',
-                '#ff375f',
-                '#af52de',
-                '#5e5ce6',
-                '#64d2ff'
-              ],
+            datasets: [
 
-              borderWidth: 3,
+              {
 
-              borderColor:
-                getComputedStyle(
-                  document.documentElement
-                ).getPropertyValue('--card')
+                data: values,
 
-            }
+                backgroundColor: [
 
-          ]
+                  '#ff453a',
+                  '#ff9f0a',
+                  '#ff375f',
+                  '#af52de',
+                  '#5e5ce6',
+                  '#64d2ff'
 
-        },
+                ],
 
-        options: {
+                borderWidth: 3,
 
-          responsive: true,
+                borderColor:
+                  getComputedStyle(
+                    document.documentElement
+                  )
+                  .getPropertyValue(
+                    '--card'
+                  )
 
-          maintainAspectRatio: false,
+              }
 
-          cutout: '66%',
+            ]
 
-          plugins: {
+          },
 
-            legend: {
-              display: false
-            },
 
-            tooltip: {
+          options: {
 
-              callbacks: {
+            responsive: true,
 
-                label: context => {
+            maintainAspectRatio: false,
 
-                  return (
-                    context.label +
-                    ': ' +
-                    money(context.parsed)
-                  );
+            cutout: '66%',
+
+
+            plugins: {
+
+              legend: {
+                display: false
+              },
+
+
+              tooltip: {
+
+                callbacks: {
+
+                  label:
+                    context => {
+
+                      return (
+                        context.label +
+                        ': ' +
+                        money(
+                          context.parsed
+                        )
+                      );
+
+                    }
 
                 }
 
@@ -1737,9 +2250,7 @@
           }
 
         }
-
-      }
-    );
+      );
 
 
     const total =
@@ -1752,71 +2263,83 @@
 
     list.innerHTML =
       rows.length
-        ? rows.map(row => {
+        ? rows.map(
+            row => {
 
-            const value =
-              Number(row.value || 0);
+              const value =
+                Number(
+                  row.value || 0
+                );
 
-            const percent =
-              total > 0
-                ? Math.round(
-                    value / total * 100
-                  )
-                : 0;
 
-            return `
+              const percent =
+                total > 0
+                  ? Math.round(
+                      value /
+                      total *
+                      100
+                    )
+                  : 0;
 
-              <div class="row">
 
-                <div class="row-left">
+              return `
 
-                  <div class="row-title">
-                    ${esc(row.label)}
+                <div class="row">
+
+                  <div class="row-left">
+
+                    <div class="row-title">
+                      ${esc(
+                        row.label
+                      )}
+                    </div>
+
+
+                    <div class="progress">
+
+                      <div
+                        class="progress-bar"
+                        style="
+                          width:${percent}%;
+                          background:var(--red)
+                        "
+                      ></div>
+
+                    </div>
+
                   </div>
 
-                  <div class="progress">
-                    <div
-                      class="progress-bar"
-                      style="
-                        width:${percent}%;
-                        background:var(--red)
-                      "
-                    ></div>
+
+                  <div class="row-right">
+
+                    <div class="amount expense">
+                      ${money(value)}
+                    </div>
+
+                    <div class="category-percent">
+                      ${percent}%
+                    </div>
+
                   </div>
 
                 </div>
 
-                <div class="row-right">
+              `;
 
-                  <div class="amount expense">
-                    ${money(value)}
-                  </div>
-
-                  <div class="category-percent">
-                    ${percent}%
-                  </div>
-
-                </div>
-
-              </div>
-
-            `;
-
-          }).join('')
-
+            }
+          ).join('')
         : '';
 
   }
 
 
-  /* =========================================================
-     RECENT OPERATIONS
-  ========================================================= */
-
   function renderRecent(rows) {
 
     const container =
-      document.getElementById('recentList');
+      document.getElementById(
+        'recentList'
+      );
+
 
     if (!container) {
       return;
@@ -1851,63 +2374,83 @@
 
 
     container.innerHTML =
-      rows.map(row => {
+      rows.map(
+        row => {
 
-        const isIncome =
-          row.kind === 'income';
-
-        const amount =
-          Number(row.amount || 0);
+          const isIncome =
+            row.kind === 'income';
 
 
-        return `
+          const amount =
+            Number(
+              row.amount || 0
+            );
 
-          <div class="row">
 
-            <div class="row-left">
+          return `
 
-              <div class="row-title">
-                ${esc(row.label)}
+            <div class="row">
+
+              <div class="row-left">
+
+                <div class="row-title">
+                  ${esc(
+                    row.label
+                  )}
+                </div>
+
+
+                <div class="row-sub">
+
+                  ${esc(
+                    dateToShort(
+                      row.date
+                    )
+                  )}
+
+                  ${
+                    row.note
+                      ? ' · ' +
+                        esc(
+                          row.note
+                        )
+                      : ''
+                  }
+
+                </div>
+
               </div>
 
-              <div class="row-sub">
 
-                ${esc(dateToShort(row.date))}
+              <div class="row-right">
 
-                ${
-                  row.note
-                    ? ' · ' + esc(row.note)
-                    : ''
-                }
+                <div
+                  class="
+                    amount
+                    ${
+                      isIncome
+                        ? 'income'
+                        : 'expense'
+                    }
+                  "
+                >
+
+                  ${
+                    isIncome
+                      ? '+'
+                      : '−'
+                  }${money(amount)}
+
+                </div>
 
               </div>
 
             </div>
 
-            <div class="row-right">
+          `;
 
-              <div
-                class="
-                  amount
-                  ${isIncome ? 'income' : 'expense'}
-                "
-              >
-
-                ${
-                  isIncome
-                    ? '+'
-                    : '−'
-                }${money(amount)}
-
-              </div>
-
-            </div>
-
-          </div>
-
-        `;
-
-      }).join('');
+        }
+      ).join('');
 
   }
 
@@ -1917,7 +2460,9 @@
   ========================================================= */
 
   document
-    .getElementById('period')
+    .getElementById(
+      'period'
+    )
     .addEventListener(
       'change',
       load
@@ -1925,7 +2470,9 @@
 
 
   document
-    .getElementById('refresh')
+    .getElementById(
+      'refresh'
+    )
     .addEventListener(
       'click',
       load
