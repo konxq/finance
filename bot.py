@@ -3,10 +3,12 @@ import sqlite3
 import logging
 import hashlib
 import hmac
+import html
 import json
 import threading
 from collections import defaultdict
 from datetime import datetime, timedelta
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 
 from telegram import (
     Update,
@@ -82,6 +84,8 @@ INCOME_SOURCES = {
 def db():
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA busy_timeout = 5000")
+    conn.execute("PRAGMA journal_mode = WAL")
     return conn
 
 
@@ -100,6 +104,11 @@ def init_db():
         )
     """)
 
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_expenses_user_date "
+        "ON expenses(user_id, date)"
+    )
+
     conn.execute("""
         CREATE TABLE IF NOT EXISTS income (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -116,6 +125,11 @@ def init_db():
         )
     """)
 
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_income_user_date "
+        "ON income(user_id, date)"
+    )
+
     conn.commit()
     conn.close()
 
@@ -127,6 +141,24 @@ def fmt(n):
         .replace(".", ",")
         + " zł"
     )
+
+
+def parse_number(text, *, minimum=Decimal("0"), maximum=Decimal("1000000"), places=2):
+    """Parse a user-provided number without accepting NaN, infinity, or excess scale."""
+    try:
+        value = Decimal(text.replace(",", ".").strip())
+    except (AttributeError, InvalidOperation):
+        raise ValueError from None
+
+    if not value.is_finite() or not minimum <= value <= maximum:
+        raise ValueError
+
+    quantum = Decimal("1").scaleb(-places)
+    return float(value.quantize(quantum, rounding=ROUND_HALF_UP))
+
+
+def parse_money(text):
+    return parse_number(text, minimum=Decimal("0.01"), places=2)
 
 
 # =========================================================
@@ -284,7 +316,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data.clear()
 
     user = update.effective_user
-    name = user.first_name or "друг"
+    name = html.escape(user.first_name or "друг")
 
     text = (
         f"Привет, {name}! 👋\n\n"
@@ -466,7 +498,7 @@ async def menu_recent(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
 
             note = (
-                f" · {r['note']}"
+                f" · {html.escape(r['note'])}"
                 if r["note"]
                 else ""
             )
@@ -525,6 +557,16 @@ async def menu_cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup=main_menu()
     )
 
+    return ConversationHandler.END
+
+
+async def cancel_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Cancel a text-input conversation invoked with /cancel."""
+    context.user_data.clear()
+    await update.message.reply_text(
+        "❌ Действие отменено.\n\nВыбери действие:",
+        reply_markup=main_menu()
+    )
     return ConversationHandler.END
 
 
@@ -944,12 +986,7 @@ async def expense_amount(
     context: ContextTypes.DEFAULT_TYPE
 ):
     try:
-        amount = float(
-            update.message.text.replace(",", ".").strip()
-        )
-
-        if amount <= 0:
-            raise ValueError
+        amount = parse_money(update.message.text)
 
     except ValueError:
         await update.message.reply_text(
@@ -978,6 +1015,13 @@ async def expense_note(
     context: ContextTypes.DEFAULT_TYPE
 ):
     note = update.message.text.strip()
+
+    if len(note) > 200:
+        await update.message.reply_text(
+            "❌ Заметка слишком длинная. Максимум — 200 символов.",
+            reply_markup=cancel_keyboard()
+        )
+        return EXP_NOTE
 
     context.user_data["note"] = (
         ""
@@ -1031,9 +1075,11 @@ async def expense_share(
     query = update.callback_query
     await query.answer()
 
-    pct = float(
-        query.data.split(":")[1]
-    )
+    try:
+        pct = parse_number(query.data.split(":")[1], maximum=Decimal("100"), places=0)
+    except ValueError:
+        await query.edit_message_text("❌ Некорректная доля расхода.", reply_markup=main_menu())
+        return ConversationHandler.END
 
     data = context.user_data
 
@@ -1124,12 +1170,7 @@ async def income_uber_amount(
     context: ContextTypes.DEFAULT_TYPE
 ):
     try:
-        amount = float(
-            update.message.text.replace(",", ".").strip()
-        )
-
-        if amount <= 0:
-            raise ValueError
+        amount = parse_money(update.message.text)
 
     except ValueError:
         await update.message.reply_text(
@@ -1176,15 +1217,16 @@ async def ask_float(
     context,
     key,
     next_state,
-    prompt
+    prompt,
+    minimum=Decimal("0"),
 ):
     try:
-        value = float(
-            update.message.text.replace(",", ".").strip()
+        value = parse_number(
+            update.message.text,
+            minimum=minimum,
+            maximum=Decimal("100000"),
+            places=2
         )
-
-        if value < 0:
-            raise ValueError
 
     except ValueError:
         await update.message.reply_text(
@@ -1232,7 +1274,8 @@ async def income_rate(
         context,
         "rate",
         INC_OFFICIAL_HOURS,
-        "📋 Сколько из этих часов официальные?"
+        "📋 Сколько из этих часов официальные?",
+        minimum=Decimal("0.01"),
     )
 
     return (
@@ -1246,6 +1289,22 @@ async def income_official_hours(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE
 ):
+    try:
+        official_hours = parse_number(
+            update.message.text,
+            maximum=Decimal("100000"),
+            places=2
+        )
+    except ValueError:
+        official_hours = None
+
+    if official_hours is not None and official_hours > context.user_data["hours"]:
+        await update.message.reply_text(
+            "❌ Официальных часов не может быть больше, чем всего отработанных.",
+            reply_markup=cancel_keyboard()
+        )
+        return INC_OFFICIAL_HOURS
+
     result = await ask_float(
         update,
         context,
@@ -1286,12 +1345,7 @@ async def income_taxpct(
     context: ContextTypes.DEFAULT_TYPE
 ):
     try:
-        tax_pct = float(
-            update.message.text.replace(",", ".").strip()
-        )
-
-        if tax_pct < 0:
-            raise ValueError
+        tax_pct = parse_number(update.message.text, maximum=Decimal("100"), places=2)
 
     except ValueError:
         await update.message.reply_text(
@@ -1566,6 +1620,17 @@ def telegram_user_id(init_data: str):
             )
             return None
 
+        try:
+            auth_date = int(pairs["auth_date"])
+        except (KeyError, TypeError, ValueError):
+            logger.warning("Telegram initData does not contain a valid auth_date")
+            return None
+
+        age_seconds = datetime.now().timestamp() - auth_date
+        if age_seconds < -60 or age_seconds > 3600:
+            logger.warning("Telegram initData is expired or has an invalid timestamp")
+            return None
+
         data_check_string = "\n".join(
             f"{key}={pairs[key]}"
             for key in sorted(pairs.keys())
@@ -1591,16 +1656,6 @@ def telegram_user_id(init_data: str):
                 "Telegram initData hash mismatch"
             )
 
-            logger.info(
-                "Received hash: %s",
-                received_hash[:12] + "..."
-            )
-
-            logger.info(
-                "Calculated hash: %s",
-                calculated_hash[:12] + "..."
-            )
-
             return None
 
         user_raw = pairs.get("user")
@@ -1620,11 +1675,6 @@ def telegram_user_id(init_data: str):
                 "Telegram user id is missing"
             )
             return None
-
-        logger.info(
-            "Telegram WebApp authenticated: user_id=%s",
-            user_id
-        )
 
         return int(user_id)
 
@@ -1734,10 +1784,12 @@ def dashboard_data(
             note
         FROM expenses
         WHERE user_id=?
+          AND date>=?
+          AND date<?
         ORDER BY id DESC
         LIMIT 6
         """,
-        (user_id,)
+        (user_id, start, end)
     ).fetchall()
 
     recent_income = conn.execute(
@@ -1748,10 +1800,12 @@ def dashboard_data(
             amount
         FROM income
         WHERE user_id=?
+          AND date>=?
+          AND date<?
         ORDER BY id DESC
         LIMIT 6
         """,
-        (user_id,)
+        (user_id, start, end)
     ).fetchall()
 
     daily_income = conn.execute(
@@ -1793,6 +1847,19 @@ def dashboard_data(
             end
         )
     ).fetchall()
+
+    transaction_stats = conn.execute(
+        """
+        SELECT
+            (SELECT COUNT(*) FROM income WHERE user_id=? AND date>=? AND date<?)
+            +
+            (SELECT COUNT(*) FROM expenses WHERE user_id=? AND date>=? AND date<?)
+            AS transactions,
+            (SELECT COUNT(*) FROM expenses WHERE user_id=? AND date>=? AND date<?)
+            AS expense_count
+        """,
+        (user_id, start, end, user_id, start, end, user_id, start, end)
+    ).fetchone()
 
     conn.close()
 
@@ -1862,6 +1929,12 @@ def dashboard_data(
             income - expenses
         ),
 
+        "transactions": transaction_stats["transactions"],
+        "categories": len(expense_categories),
+        "avg_check": float(expenses / transaction_stats["expense_count"])
+        if transaction_stats["expense_count"]
+        else 0.0,
+
         "income_by_source": [
             {
                 "label": INCOME_SOURCES.get(
@@ -1910,20 +1983,23 @@ def run_web_server():
     )
 
     from fastapi.responses import FileResponse
+    from fastapi.staticfiles import StaticFiles
 
     import uvicorn
 
     api = FastAPI()
+    web_dir = os.path.join(os.path.dirname(__file__), "web")
+    api.mount(
+        "/static",
+        StaticFiles(directory=os.path.join(web_dir, "static")),
+        name="static"
+    )
 
     @api.get("/")
     def index():
 
         return FileResponse(
-            os.path.join(
-                os.path.dirname(__file__),
-                "web",
-                "index.html"
-            )
+            os.path.join(web_dir, "index.html")
         )
 
     @api.get("/api/dashboard")
@@ -1984,40 +2060,6 @@ def run_web_server():
             user_id,
             period
         )
-
-    # =====================================================
-    # DEBUG
-    # =====================================================
-
-    @api.get("/api/debug")
-    def debug(request: Request):
-
-        init_data = request.headers.get(
-            "X-Telegram-Init-Data",
-            ""
-        )
-
-        authorization = request.headers.get(
-            "Authorization",
-            ""
-        )
-
-        return {
-            "telegram_header_present": bool(
-                init_data
-            ),
-            "authorization_present": bool(
-                authorization
-            ),
-            "telegram_header_length": len(
-                init_data
-            ),
-            "authorization_prefix": (
-                authorization[:10]
-                if authorization
-                else ""
-            ),
-        }
 
     # =====================================================
     # SERVER
@@ -2141,7 +2183,7 @@ def main():
         fallbacks=[
             CommandHandler(
                 "cancel",
-                menu_cancel
+                cancel_command
             )
         ],
     )
@@ -2222,7 +2264,7 @@ def main():
         fallbacks=[
             CommandHandler(
                 "cancel",
-                menu_cancel
+                cancel_command
             )
         ],
     )

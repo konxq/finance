@@ -123,10 +123,6 @@ function completeDailyData(rows, period) {
 function getTelegramInitData() {
   if (!tg) return '';
   const initData = typeof tg.initData === 'string' ? tg.initData : '';
-  console.log('[Financebot] Telegram WebApp exists:', true);
-  console.log('[Financebot] initData length:', initData.length);
-  console.log('[Financebot] initData present:', Boolean(initData));
-  if (tg.initDataUnsafe) console.log('[Financebot] initDataUnsafe user:', tg.initDataUnsafe.user || null);
   return initData;
 }
 
@@ -141,7 +137,12 @@ async function load() {
   refreshButton.disabled = true;
 
   try {
-    const res = await fetch(`/api/stats?period=${encodeURIComponent(period)}`);
+    const initData = getTelegramInitData();
+    if (!initData) throw new Error('Открой приложение через Telegram-бота');
+
+    const res = await fetch(`/api/dashboard?period=${encodeURIComponent(period)}`, {
+      headers: { 'X-Telegram-Init-Data': initData },
+    });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     currentData = data;
@@ -164,12 +165,12 @@ function render(data, period) {
   // Keep rendering simple: reuse existing DOM structure
   // Build main content
 
-  const balanceClass = (data.balance >= 0) ? 'hero-balance positive' : 'hero-balance negative';
+  const balanceClass = (data.net >= 0) ? 'hero-balance positive' : 'hero-balance negative';
 
   const html = `
   <div class="hero">
     <div class="hero-label">Баланс</div>
-    <div class="${balanceClass}">${money(data.balance)}</div>
+    <div class="${balanceClass}">${money(data.net)}</div>
     <div class="hero-period">за ${periodNames[period] || ''}</div>
     <div class="hero-stats">
       <div class="hero-stat">
@@ -239,17 +240,19 @@ function render(data, period) {
       <div class="card-subtitle">за выбранный период</div>
     </div>
     <div class="list">
-      ${ (data.latest || []).map(t => `
+      ${ (data.recent || []).map(t => {
+        const signedAmount = t.kind === 'income' ? t.amount : -t.amount;
+        return `
         <div class="row">
           <div class="row-left">
-            <div class="row-title">${esc(t.title)}</div>
-            <div class="row-sub">${esc(t.category)} • ${dateToShort(t.date)}</div>
+            <div class="row-title">${esc(t.label)}</div>
+            <div class="row-sub">${esc(t.note || '')}${t.note ? ' • ' : ''}${dateToShort(t.date)}</div>
           </div>
           <div class="row-right">
-            <div class="amount ${t.amount >=0 ? 'income' : 'expense'}">${money(t.amount)}</div>
+            <div class="amount ${signedAmount >= 0 ? 'income' : 'expense'}">${signedAmount >= 0 ? '+' : '−'}${money(Math.abs(signedAmount))}</div>
           </div>
         </div>
-      `).join('') }
+      `; }).join('') || '<div class="empty">За этот период операций пока нет.</div>' }
     </div>
   </div>
   `;
@@ -274,10 +277,10 @@ function render(data, period) {
 
     // Pie charts for income/expense categories
     const incomeCtx = document.getElementById('incomeChartCanvas').getContext('2d');
-    incomeChart = new Chart(incomeCtx, { type: 'doughnut', data: { labels: (data.income_by_category || []).map(c => c.label), datasets: [{ data: (data.income_by_category || []).map(c => c.value), backgroundColor: ['#0a84ff','#35c759','#ff9f0a','#7c5cff'] }] }, options: { responsive: true, maintainAspectRatio: false } });
+    incomeChart = new Chart(incomeCtx, { type: 'doughnut', data: { labels: (data.income_by_source || []).map(c => c.label), datasets: [{ data: (data.income_by_source || []).map(c => c.value), backgroundColor: ['#0a84ff','#35c759','#ff9f0a','#7c5cff'] }] }, options: { responsive: true, maintainAspectRatio: false } });
 
     const expenseCtx = document.getElementById('expenseChartCanvas').getContext('2d');
-    expenseChart = new Chart(expenseCtx, { type: 'doughnut', data: { labels: (data.expense_by_category || []).map(c => c.label), datasets: [{ data: (data.expense_by_category || []).map(c => c.value), backgroundColor: ['#ff453a','#ff9f0a','#7c5cff','#0a84ff'] }] }, options: { responsive: true, maintainAspectRatio: false } });
+    expenseChart = new Chart(expenseCtx, { type: 'doughnut', data: { labels: (data.expenses_by_category || []).map(c => c.label), datasets: [{ data: (data.expenses_by_category || []).map(c => c.value), backgroundColor: ['#ff453a','#ff9f0a','#7c5cff','#0a84ff'] }] }, options: { responsive: true, maintainAspectRatio: false } });
 
   } catch (err) {
     console.error('Chart render error', err);
