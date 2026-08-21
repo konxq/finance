@@ -1,4 +1,4 @@
-/* Financebot 3.0 frontend router */
+/* Financebot 3.0 - Frontend Router */
 
 const FinancebotRouter = {
   routes: {
@@ -16,54 +16,93 @@ const FinancebotRouter = {
   },
 
   navigate(page, options = {}) {
-    if (!this.routes[page] && !Object.values(this.routes).includes(page)) {
-      console.warn(`Financebot Router: unknown page "${page}"`);
+    if (
+      !Object.values(this.routes).includes(page)
+    ) {
+      console.warn(
+        `Financebot Router: unknown page "${page}"`
+      );
+
       return;
     }
 
     const currentPage =
-      window.FinancebotState?.getState().currentPage || 'home';
+      window.FinancebotState
+        ?.getState()
+        .currentPage || 'home';
 
-    if (currentPage !== page) {
-      window.FinancebotState?.setState({
-        previousPage: currentPage,
-        currentPage: page,
-      });
-    }
-
-    if (options.replaceHistory) {
-      window.history.replaceState({ page }, '', `#${page}`);
-    } else {
-      window.history.pushState({ page }, '', `#${page}`);
-    }
-  },
-
-  back() {
-    const state = window.FinancebotState?.getState();
-
-    if (state?.previousPage) {
-      this.navigate(state.previousPage);
+    if (currentPage === page) {
       return;
     }
 
-    if (window.Telegram?.WebApp?.BackButton) {
-      window.Telegram.WebApp.BackButton.hide();
+    window.FinancebotState?.setState({
+      previousPage: currentPage,
+      currentPage: page,
+    });
+
+    const method =
+      options.replaceHistory
+        ? 'replaceState'
+        : 'pushState';
+
+    window.history[method](
+      { page },
+      '',
+      `#${page}`
+    );
+
+    this.render();
+  },
+
+  back() {
+    const state =
+      window.FinancebotState?.getState();
+
+    if (state?.previousPage) {
+      this.navigate(
+        state.previousPage
+      );
+
+      return;
     }
 
-    this.navigate('home', { replaceHistory: true });
+    this.navigate(
+      'home',
+      {
+        replaceHistory: true,
+      }
+    );
   },
 
   getCurrentPage() {
     return (
-      window.FinancebotState?.getState().currentPage || 'home'
+      window.FinancebotState
+        ?.getState()
+        .currentPage || 'home'
     );
   },
 
+  render() {
+    if (
+      window.FinancebotApp &&
+      typeof window.FinancebotApp.render ===
+        'function'
+    ) {
+      window.FinancebotApp.render();
+    }
+  },
+
   init() {
-    const hash = window.location.hash.replace('#', '');
+    const hash =
+      window.location.hash.replace(
+        '#',
+        ''
+      );
 
     const initialPage =
-      Object.values(this.routes).includes(hash)
+      Object.values(this.routes).includes(
+        hash
+      )
         ? hash
         : 'home';
 
@@ -72,17 +111,34 @@ const FinancebotRouter = {
       previousPage: null,
     });
 
-    window.addEventListener('popstate', (event) => {
-      const page =
-        event.state?.page ||
-        window.location.hash.replace('#', '') ||
-        'home';
+    window.addEventListener(
+      'popstate',
+      (event) => {
+        const page =
+          event.state?.page ||
+          window.location.hash.replace(
+            '#',
+            ''
+          ) ||
+          'home';
 
-      window.FinancebotState?.setState({
-        currentPage: page,
-      });
-    });
+        if (
+          !Object.values(
+            this.routes
+          ).includes(page)
+        ) {
+          return;
+        }
+
+        window.FinancebotState?.setState({
+          currentPage: page,
+        });
+
+        this.render();
+      }
+    );
   },
 };
 
-window.FinancebotRouter = FinancebotRouter;
+window.FinancebotRouter =
+  FinancebotRouter;
