@@ -452,3 +452,344 @@ button {
     right: calc(50% - 300px);
   }
 }
+/* =========================================================
+   Financebot 3.0 - V3 Components
+   ========================================================= */
+
+/* Stat Card */
+
+.stat-card {
+  padding: 14px;
+  min-width: 0;
+}
+
+.stat-card__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.stat-card__label {
+  font-size: 11px;
+  line-height: 1.2;
+  color: var(--text-secondary);
+}
+
+.stat-card__icon {
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  background: var(--surface-soft);
+  color: var(--green-dark);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.stat-card__value {
+  display: flex;
+  align-items: baseline;
+  gap: 3px;
+  margin-top: 7px;
+  font-size: 16px;
+  line-height: 1.1;
+  font-weight: 700;
+  letter-spacing: -0.3px;
+}
+
+.stat-card__value small {
+  font-size: 9px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.stat-card--income .stat-card__value {
+  color: var(--green-dark);
+}
+
+.stat-card--expense .stat-card__value {
+  color: var(--red);
+}
+
+.stat-card__footer {
+  margin-top: 6px;
+  min-height: 14px;
+}
+
+.stat-card__change {
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.stat-card__change--positive {
+  color: var(--green-dark);
+}
+
+.stat-card__change--negative {
+  color: var(--red);
+}
+
+
+/* Transaction Row */
+
+.transaction {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 13px 0;
+  text-align: left;
+  color: var(--text);
+  border-bottom: 1px solid var(--border);
+}
+
+.transaction:last-child {
+  border-bottom: 0;
+}
+
+.transaction__icon {
+  width: 40px;
+  height: 40px;
+  flex: 0 0 40px;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  background: var(--surface-soft);
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.transaction__icon--income {
+  background: var(--green-soft);
+  color: var(--green-dark);
+}
+
+.transaction__icon--expense {
+  background: var(--red-soft);
+  color: var(--red);
+}
+
+.transaction__content {
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.transaction__title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.transaction__meta {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.transaction__right {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 3px;
+}
+
+.transaction__amount {
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.transaction__amount--income {
+  color: var(--green-dark);
+}
+
+.transaction__amount--expense {
+  color: var(--text);
+}
+
+.transaction__date {
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+
+/* Empty State */
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 28px 12px;
+  text-align: center;
+}
+
+.empty-state__icon {
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  margin-bottom: 12px;
+  border-radius: 16px;
+  background: var(--green-soft);
+  color: var(--green-dark);
+  font-size: 24px;
+}
+
+.empty-state__title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.empty-state__description {
+  max-width: 280px;
+  margin: 6px 0 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--text-secondary);
+}
+
+.empty-state__action {
+  width: auto;
+  min-width: 180px;
+  margin-top: 16px;
+  padding: 0 18px;
+}
+
+
+/* Loading */
+
+.loading {
+  min-height: 220px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: var(--text-secondary);
+}
+
+.loading--inline {
+  min-height: 0;
+  flex-direction: row;
+}
+
+.loading__spinner {
+  width: 24px;
+  height: 24px;
+  border: 3px solid var(--border);
+  border-top-color: var(--green);
+  border-radius: 50%;
+  animation: financebot-spin 0.8s linear infinite;
+}
+
+.loading__label {
+  font-size: 12px;
+}
+
+@keyframes financebot-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+
+/* Error */
+
+.error-state {
+  min-height: 260px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 12px;
+  text-align: center;
+}
+
+.error-state__icon {
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  margin-bottom: 12px;
+  border-radius: 16px;
+  background: var(--red-soft);
+  color: var(--red);
+  font-size: 20px;
+  font-weight: 800;
+}
+
+.error-state__title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.error-state__description {
+  max-width: 280px;
+  margin: 6px 0 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--text-secondary);
+}
+
+.error-state__action {
+  width: auto;
+  min-width: 140px;
+  margin-top: 16px;
+  padding: 0 18px;
+}
+
+
+/* Placeholder */
+
+.placeholder-page {
+  min-height: calc(100vh - 86px);
+}
+
+.placeholder-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 42px 20px;
+  text-align: center;
+}
+
+.placeholder-icon {
+  width: 52px;
+  height: 52px;
+  display: grid;
+  place-items: center;
+  margin-bottom: 14px;
+  border-radius: 18px;
+  background: var(--green-soft);
+  color: var(--green-dark);
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.placeholder-title {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.placeholder-text {
+  max-width: 260px;
+  margin: 7px 0 0;
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.5;
+}
