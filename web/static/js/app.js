@@ -166,11 +166,13 @@ function render(data, period) {
   // Build main content
 
   const balanceClass = (data.net >= 0) ? 'hero-balance positive' : 'hero-balance negative';
+  const statusText = (data.net >= 0) ? 'Ваш баланс в плюсе' : 'Ваш баланс в минусе';
 
   const html = `
   <div class="hero">
     <div class="hero-label">Баланс</div>
     <div class="${balanceClass}">${money(data.net)}</div>
+    <div class="hero-status">${esc(statusText)}</div>
     <div class="hero-period">за ${periodNames[period] || ''}</div>
     <div class="hero-stats">
       <div class="hero-stat">
@@ -181,24 +183,6 @@ function render(data, period) {
         <div class="hero-stat-label">Расход</div>
         <div class="hero-stat-value">${money(data.expenses)}</div>
       </div>
-    </div>
-  </div>
-
-  <div class="quick-grid">
-    <div class="quick-card">
-      <div class="quick-icon">💳</div>
-      <div class="quick-label">Транзакций</div>
-      <div class="quick-value">${number(data.transactions)}</div>
-    </div>
-    <div class="quick-card">
-      <div class="quick-icon">📈</div>
-      <div class="quick-label">Категорий</div>
-      <div class="quick-value">${number(data.categories)}</div>
-    </div>
-    <div class="quick-card">
-      <div class="quick-icon">⚖️</div>
-      <div class="quick-label">Средний чек</div>
-      <div class="quick-value">${money(data.avg_check)}</div>
     </div>
   </div>
 
@@ -271,16 +255,16 @@ function render(data, period) {
     const ctx = document.getElementById('dailyChartCanvas').getContext('2d');
     dailyChart = new Chart(ctx, {
       type: 'line',
-      data: { labels, datasets: [{ label: 'Доход', data: incomes, borderColor: 'rgba(53,199,89,0.9)', backgroundColor: 'rgba(53,199,89,0.08)' }, { label: 'Расход', data: expenses, borderColor: 'rgba(255,69,58,0.9)', backgroundColor: 'rgba(255,69,58,0.06)' }] },
+      data: { labels, datasets: [{ label: 'Доход', data: incomes, borderColor: 'rgba(53,199,89,0.9)', backgroundColor: 'rgba(53,199,89,0.08)' }, { label: 'Расход', data: expenses, bord[...]
       options: { responsive: true, maintainAspectRatio: false }
     });
 
     // Pie charts for income/expense categories
     const incomeCtx = document.getElementById('incomeChartCanvas').getContext('2d');
-    incomeChart = new Chart(incomeCtx, { type: 'doughnut', data: { labels: (data.income_by_source || []).map(c => c.label), datasets: [{ data: (data.income_by_source || []).map(c => c.value), backgroundColor: ['#0a84ff','#35c759','#ff9f0a','#7c5cff'] }] }, options: { responsive: true, maintainAspectRatio: false } });
+    incomeChart = new Chart(incomeCtx, { type: 'doughnut', data: { labels: (data.income_by_source || []).map(c => c.label), datasets: [{ data: (data.income_by_source || []).map(c => c.value), bac[...]
 
     const expenseCtx = document.getElementById('expenseChartCanvas').getContext('2d');
-    expenseChart = new Chart(expenseCtx, { type: 'doughnut', data: { labels: (data.expenses_by_category || []).map(c => c.label), datasets: [{ data: (data.expenses_by_category || []).map(c => c.value), backgroundColor: ['#ff453a','#ff9f0a','#7c5cff','#0a84ff'] }] }, options: { responsive: true, maintainAspectRatio: false } });
+    expenseChart = new Chart(expenseCtx, { type: 'doughnut', data: { labels: (data.expenses_by_category || []).map(c => c.label), datasets: [{ data: (data.expenses_by_category || []).map(c => c.v[...]
 
   } catch (err) {
     console.error('Chart render error', err);
