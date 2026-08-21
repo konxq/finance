@@ -265,8 +265,6 @@ const FinancebotHomePage = {
               window.FinancebotRouter?.navigate(
                 'add-operation'
               );
-
-              window.FinancebotApp?.render();
             },
           })
         );
@@ -339,8 +337,6 @@ const FinancebotHomePage = {
         window.FinancebotRouter?.navigate(
           'operations'
         );
-
-        window.FinancebotApp?.render();
       }
     );
   },
