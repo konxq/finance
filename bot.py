@@ -1993,7 +1993,9 @@ def run_web_server():
     # DIRECTORIES
     # =====================================================
 
-    base_dir = os.path.dirname(__file__)
+    base_dir = os.path.dirname(
+        os.path.abspath(__file__)
+    )
 
     v3_dir = os.path.join(
         base_dir,
@@ -2001,10 +2003,14 @@ def run_web_server():
     )
 
     # =====================================================
-    # V3 FRONTEND
+    # FINANCEBOT 3.0 FRONTEND
     # =====================================================
 
-    # Главная страница Mini App
+    # Главная страница Mini App.
+    #
+    # Теперь / открывает именно V3,
+    # а не старый web/index.html.
+
     @api.get("/")
     def index():
 
@@ -2015,7 +2021,11 @@ def run_web_server():
             )
         )
 
-    # Все остальные файлы V3:
+    # =====================================================
+    # V3 STATIC FILES
+    # =====================================================
+
+    # Все файлы нового frontend доступны через /v3/
     #
     # /v3/styles.css
     # /v3/app.js
@@ -2051,7 +2061,9 @@ def run_web_server():
         )
 
         # Дополнительный вариант авторизации:
+        #
         # Authorization: tma <initData>
+
         if not init_data:
 
             authorization = request.headers.get(
@@ -2060,6 +2072,7 @@ def run_web_server():
             )
 
             if authorization.startswith("tma "):
+
                 init_data = authorization[4:]
 
         logger.info(
@@ -2082,6 +2095,8 @@ def run_web_server():
                 status_code=401,
                 detail="Invalid Telegram init data"
             )
+
+        # Разрешённые периоды
 
         if period not in {
             "day",
@@ -2112,6 +2127,11 @@ def run_web_server():
     logger.info(
         "Starting FastAPI server on port %s",
         port
+    )
+
+    logger.info(
+        "Financebot 3.0 frontend directory: %s",
+        v3_dir
     )
 
     uvicorn.run(
