@@ -2,46 +2,24 @@
 
 const FinancebotHomePage = {
   async render(container) {
-    if (!container) {
-      return;
-    }
+    if (!container) return;
 
     const state =
-      window.FinancebotState?.getState();
+      window.FinancebotState?.getState() || {};
 
     container.innerHTML = '';
 
     const page = document.createElement('main');
-
     page.className = 'page home-page';
 
     container.appendChild(page);
 
-    await this.load(
-      page,
-      state?.period || 'month'
-    );
-  },
-
-  async load(page, period = 'month') {
-    if (!page) {
-      return;
-    }
-
-    page.innerHTML = '';
-
-    if (window.FinancebotLoading) {
-      page.appendChild(
-        window.FinancebotLoading.render({
-          label: 'Загружаем финансы...',
-        })
-      );
-    }
+    this.renderLoading(page);
 
     try {
       const dashboard =
         await window.FinancebotApi.getDashboard(
-          period
+          state.period || 'month'
         );
 
       window.FinancebotState?.setState({
@@ -49,10 +27,7 @@ const FinancebotHomePage = {
         error: null,
       });
 
-      this.renderDashboard(
-        page,
-        dashboard
-      );
+      this.renderDashboard(page, dashboard);
     } catch (error) {
       console.error(
         'Financebot Home: dashboard loading failed',
@@ -61,7 +36,7 @@ const FinancebotHomePage = {
 
       window.FinancebotState?.setState({
         error:
-          error.message ||
+          error?.message ||
           'Не удалось загрузить данные',
       });
 
@@ -69,37 +44,88 @@ const FinancebotHomePage = {
     }
   },
 
-  renderDashboard(page, dashboard) {
-    const income =
-      Number(dashboard?.income || 0);
+  renderLoading(page) {
+    page.innerHTML = '';
 
-    const expenses =
-      Number(dashboard?.expenses || 0);
-
-    const net =
-      Number(dashboard?.net || 0);
-
-    const transactions =
-      Number(
-        dashboard?.transactions || 0
+    if (window.FinancebotLoading) {
+      page.appendChild(
+        window.FinancebotLoading.render({
+          label: 'Загружаем финансы...',
+        })
       );
 
+      return;
+    }
+
     page.innerHTML = `
-      <header class="page-header">
-        <div>
+      <div class="loading">
+        <span class="loading__spinner"></span>
+        <span class="loading__label">
+          Загружаем финансы...
+        </span>
+      </div>
+    `;
+  },
+
+  renderDashboard(page, dashboard) {
+    const income = Number(
+      dashboard?.income || 0
+    );
+
+    const expenses = Number(
+      dashboard?.expenses || 0
+    );
+
+    const net = Number(
+      dashboard?.net || 0
+    );
+
+    const transactions = Number(
+      dashboard?.transactions || 0
+    );
+
+    const categories = Number(
+      dashboard?.categories || 0
+    );
+
+    const avgCheck = Number(
+      dashboard?.avg_check || 0
+    );
+
+    const recent =
+      Array.isArray(dashboard?.recent)
+        ? dashboard.recent
+        : [];
+
+    page.innerHTML = `
+      <header class="page-header home-header">
+        <div class="home-header__content">
+          <div class="home-header__eyebrow">
+            FINANCEBOT
+          </div>
+
           <h1 class="page-title">
-            Главная
+            Финансы
           </h1>
 
           <div class="page-subtitle">
-            Финансы за текущий период
+            Обзор за ${this.getPeriodLabel()}
           </div>
         </div>
+
+        <button
+          type="button"
+          class="home-header__profile"
+          data-action="profile"
+          aria-label="Профиль"
+        >
+          <span>•</span>
+        </button>
       </header>
 
-      <section class="card capital-card">
+      <section class="card capital-card home-balance-card">
         <div class="capital-label">
-          Баланс за период
+          Баланс
         </div>
 
         <div class="capital-value">
@@ -110,11 +136,21 @@ const FinancebotHomePage = {
         </div>
 
         <div class="capital-change">
-          Доходы − расходы
+          ${
+            net >= 0
+              ? 'Ваш баланс в плюсе'
+              : 'Расходы превышают доходы'
+          }
+        </div>
+
+        <div class="home-balance-card__decor">
+          <span></span>
+          <span></span>
+          <span></span>
         </div>
       </section>
 
-      <section class="stats-grid">
+      <section class="stats-grid home-stats">
         <div
           id="home-income"
           class="card stat-card"
@@ -131,7 +167,60 @@ const FinancebotHomePage = {
         ></div>
       </section>
 
-      <section class="section">
+      <section class="section home-overview-section">
+        <div class="section-header">
+          <h2 class="section-title">
+            Обзор
+          </h2>
+
+          <button
+            type="button"
+            class="section-action"
+            data-action="analytics"
+          >
+            Подробнее
+          </button>
+        </div>
+
+        <div class="card home-overview-card">
+          <div class="home-overview-row">
+            <div>
+              <div class="home-overview-label">
+                Средний чек
+              </div>
+
+              <div class="home-overview-value">
+                ${this.formatMoney(avgCheck)}
+                <span>PLN</span>
+              </div>
+            </div>
+
+            <div class="home-overview-icon">
+              ≈
+            </div>
+          </div>
+
+          <div class="home-overview-divider"></div>
+
+          <div class="home-overview-row">
+            <div>
+              <div class="home-overview-label">
+                Категории расходов
+              </div>
+
+              <div class="home-overview-value">
+                ${categories}
+              </div>
+            </div>
+
+            <div class="home-overview-icon">
+              #
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section home-transactions-section">
         <div class="section-header">
           <h2 class="section-title">
             Последние операции
@@ -153,6 +242,15 @@ const FinancebotHomePage = {
           ></div>
         </div>
       </section>
+
+      <button
+        type="button"
+        class="fab"
+        data-action="add"
+        aria-label="Добавить операцию"
+      >
+        +
+      </button>
     `;
 
     this.renderStatCards(
@@ -164,7 +262,7 @@ const FinancebotHomePage = {
 
     this.renderRecentTransactions(
       page,
-      dashboard?.recent || []
+      recent
     );
 
     this.bindActions(page);
@@ -243,9 +341,7 @@ const FinancebotHomePage = {
         '#home-transactions-list'
       );
 
-    if (!list) {
-      return;
-    }
+    if (!list) return;
 
     list.innerHTML = '';
 
@@ -273,8 +369,9 @@ const FinancebotHomePage = {
       return;
     }
 
-    transactions.forEach(
-      (transaction) => {
+    transactions
+      .slice(0, 5)
+      .forEach((transaction) => {
         if (
           window.FinancebotTransactionRow
         ) {
@@ -284,8 +381,7 @@ const FinancebotHomePage = {
             )
           );
         }
-      }
-    );
+      });
   },
 
   renderError(page) {
@@ -307,38 +403,56 @@ const FinancebotHomePage = {
           'Повторить',
 
         action: () => {
-          const period =
-            window.FinancebotState
-              ?.getState()
-              .period || 'month';
-
-          this.load(
-            page,
-            period
-          );
+          this.render(page);
         },
       })
     );
   },
 
   bindActions(page) {
-    const operationsButton =
-      page.querySelector(
-        '[data-action="operations"]'
-      );
+    const actions = {
+      add: 'add-operation',
+      operations: 'operations',
+      analytics: 'analytics',
+      profile: 'profile',
+    };
 
-    if (!operationsButton) {
-      return;
-    }
+    Object.entries(actions).forEach(
+      ([action, route]) => {
+        const elements =
+          page.querySelectorAll(
+            `[data-action="${action}"]`
+          );
 
-    operationsButton.addEventListener(
-      'click',
-      () => {
-        window.FinancebotRouter?.navigate(
-          'operations'
-        );
+        elements.forEach((element) => {
+          element.addEventListener(
+            'click',
+            () => {
+              window.FinancebotRouter?.navigate(
+                route
+              );
+            }
+          );
+        });
       }
     );
+  },
+
+  getPeriodLabel() {
+    const period =
+      window.FinancebotState
+        ?.getState()
+        .period || 'month';
+
+    const labels = {
+      day: 'сегодня',
+      week: 'эту неделю',
+      month: 'этот месяц',
+      year: 'этот год',
+      all: 'всё время',
+    };
+
+    return labels[period] || 'этот месяц';
   },
 
   formatMoney(value) {
