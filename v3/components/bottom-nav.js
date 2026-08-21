@@ -45,15 +45,15 @@ const FinancebotBottomNav = {
       const button = document.createElement('button');
 
       button.type = 'button';
-      button.className = 'bottom-nav__item';
+      button.className = 'nav-item';
       button.dataset.page = item.id;
       button.setAttribute('aria-label', item.label);
 
       button.innerHTML = `
-        <span class="bottom-nav__icon" aria-hidden="true">
+        <span class="nav-icon" aria-hidden="true">
           ${item.icon}
         </span>
-        <span class="bottom-nav__label">
+        <span class="nav-label">
           ${item.label}
         </span>
       `;
@@ -77,12 +77,12 @@ const FinancebotBottomNav = {
       window.FinancebotRouter?.getCurrentPage() || 'home';
 
     document
-      .querySelectorAll('.bottom-nav__item')
+      .querySelectorAll('.nav-item')
       .forEach((button) => {
         const isActive = button.dataset.page === currentPage;
 
         button.classList.toggle(
-          'bottom-nav__item--active',
+          'active',
           isActive
         );
 
