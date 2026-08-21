@@ -189,7 +189,10 @@ function render(data, period) {
   <div class="card">
     <div class="card-header">
       <h3 class="card-title">Динамика</h3>
-      <div class="card-subtitle">по дням</div>
+      <div class="chart-toggle" role="tablist" aria-label="Переключатель доходы расходы">
+        <button id="toggle-income" class="toggle-btn" role="tab" aria-selected="false">Доходы</button>
+        <button id="toggle-expense" class="toggle-btn active" role="tab" aria-selected="true">Расходы</button>
+      </div>
     </div>
     <div class="chart-wrap" id="dailyChartWrap">
       <canvas id="dailyChartCanvas"></canvas>
@@ -245,26 +248,83 @@ function render(data, period) {
 
   // Render charts
   try {
-    destroyCharts();
+    // Do not destroy income/expense pies here; we'll manage dailyChart separately
+    if (dailyChart) { dailyChart.destroy(); dailyChart = null; }
 
-    const daily = completeDailyData(data.daily || [], period);
-    const labels = daily.map(r => dateToLabel(r.date));
-    const incomes = daily.map(r => r.income);
-    const expenses = daily.map(r => r.expenses);
+    // Use existing helper to prepare month data (chart should show current month)
+    const monthly = completeDailyData(data.daily || [], 'month');
+    const labels = monthly.map(r => dateToLabel(r.date));
+    const incomes = monthly.map(r => r.income);
+    const expenses = monthly.map(r => r.expenses);
 
-    const ctx = document.getElementById('dailyChartCanvas').getContext('2d');
-    dailyChart = new Chart(ctx, {
-      type: 'line',
-      data: { labels, datasets: [{ label: 'Доход', data: incomes, borderColor: 'rgba(53,199,89,0.9)', backgroundColor: 'rgba(53,199,89,0.08)' }, { label: 'Расход', data: expenses, bord[...]
-      options: { responsive: true, maintainAspectRatio: false }
-    });
+    // Create daily chart with toggle between income/expenses
+    function createDailyChart(mode) {
+      if (dailyChart) { dailyChart.destroy(); dailyChart = null; }
+      const values = (mode === 'income') ? incomes : expenses;
+      const isIncome = mode === 'income';
+      const color = isIncome ? 'rgba(53,199,89,0.95)' : 'rgba(255,69,58,0.95)';
+      const bg = isIncome ? 'rgba(53,199,89,0.12)' : 'rgba(255,69,58,0.08)';
 
-    // Pie charts for income/expense categories
+      const ctx = document.getElementById('dailyChartCanvas').getContext('2d');
+      dailyChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: isIncome ? 'Доход' : 'Расход',
+            data: values,
+            borderColor: color,
+            backgroundColor: bg,
+            fill: 'start',
+            tension: 0.35,
+            pointRadius: 0,
+            pointHoverRadius: 6,
+            borderWidth: 2
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            x: {
+              grid: { display: false },
+              ticks: { autoSkip: true, maxTicksLimit: 7 }
+            },
+            y: {
+              grid: { color: 'rgba(8,15,26,0.05)' },
+              beginAtZero: true
+            }
+          },
+          interaction: { intersect: false, mode: 'index' },
+          elements: { point: { hoverRadius: 6 } }
+        }
+      });
+    }
+
+    // Default to expenses per requirement
+    createDailyChart('expenses');
+
+    // Setup toggle handlers
+    const btnIncome = document.getElementById('toggle-income');
+    const btnExpense = document.getElementById('toggle-expense');
+    function setActive(mode) {
+      if (!btnIncome || !btnExpense) return;
+      btnIncome.classList.toggle('active', mode === 'income');
+      btnIncome.setAttribute('aria-selected', mode === 'income' ? 'true' : 'false');
+      btnExpense.classList.toggle('active', mode === 'expenses');
+      btnExpense.setAttribute('aria-selected', mode === 'expenses' ? 'true' : 'false');
+      createDailyChart(mode);
+    }
+    btnIncome?.addEventListener('click', () => setActive('income'));
+    btnExpense?.addEventListener('click', () => setActive('expenses'));
+
+    // Pie charts for income/expense categories (existing)
     const incomeCtx = document.getElementById('incomeChartCanvas').getContext('2d');
-    incomeChart = new Chart(incomeCtx, { type: 'doughnut', data: { labels: (data.income_by_source || []).map(c => c.label), datasets: [{ data: (data.income_by_source || []).map(c => c.value), bac[...]
+    incomeChart = new Chart(incomeCtx, { type: 'doughnut', data: { labels: (data.income_by_source || []).map(c => c.label), datasets: [{ data: (data.income_by_source || []).map(c => c.value), backgroundColor: (data.income_by_source || []).map((_,i)=>['#35c759','#7ccf8f','#a6f5c9','#bde7d0'][i%4]) }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } } });
 
     const expenseCtx = document.getElementById('expenseChartCanvas').getContext('2d');
-    expenseChart = new Chart(expenseCtx, { type: 'doughnut', data: { labels: (data.expenses_by_category || []).map(c => c.label), datasets: [{ data: (data.expenses_by_category || []).map(c => c.v[...]
+    expenseChart = new Chart(expenseCtx, { type: 'doughnut', data: { labels: (data.expenses_by_category || []).map(c => c.label), datasets: [{ data: (data.expenses_by_category || []).map(c => c.value), backgroundColor: (data.expenses_by_category || []).map((_,i)=>['#ff6b6b','#ff9b9b','#ffc9c9','#ffd6d6'][i%4]) }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } } });
 
   } catch (err) {
     console.error('Chart render error', err);
