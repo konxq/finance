@@ -1988,19 +1988,55 @@ def run_web_server():
     import uvicorn
 
     api = FastAPI()
-    web_dir = os.path.join(os.path.dirname(__file__), "web")
-    api.mount(
-        "/static",
-        StaticFiles(directory=os.path.join(web_dir, "static")),
-        name="static"
+
+    # =====================================================
+    # DIRECTORIES
+    # =====================================================
+
+    base_dir = os.path.dirname(__file__)
+
+    v3_dir = os.path.join(
+        base_dir,
+        "v3"
     )
+
+    # =====================================================
+    # V3 FRONTEND
+    # =====================================================
 
     @api.get("/")
     def index():
 
         return FileResponse(
-            os.path.join(web_dir, "index.html")
+            os.path.join(
+                v3_dir,
+                "index.html"
+            )
         )
+
+    # V3 static files are served from the v3 directory.
+    # Examples:
+    # /styles.css
+    # /app.js
+    # /telegram.js
+    # /api.js
+    # /state.js
+    # /router.js
+    # /components/...
+    # /pages/...
+
+    api.mount(
+        "/",
+        StaticFiles(
+            directory=v3_dir,
+            html=True
+        ),
+        name="v3"
+    )
+
+    # =====================================================
+    # MINI APP API
+    # =====================================================
 
     @api.get("/api/dashboard")
     def dashboard(
@@ -2083,7 +2119,6 @@ def run_web_server():
         port=port,
         log_level="info"
     )
-
 
 # =========================================================
 # MAIN
