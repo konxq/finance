@@ -6,16 +6,21 @@ const FinancebotHomePage = {
       return;
     }
 
-    const state = window.FinancebotState?.getState();
+    const state =
+      window.FinancebotState?.getState();
 
     container.innerHTML = '';
 
     const page = document.createElement('main');
+
     page.className = 'page home-page';
 
     container.appendChild(page);
 
-    await this.load(page, state?.period || 'month');
+    await this.load(
+      page,
+      state?.period || 'month'
+    );
   },
 
   async load(page, period = 'month') {
@@ -33,22 +38,21 @@ const FinancebotHomePage = {
       );
     }
 
-    window.FinancebotState?.setState({
-      loading: true,
-      error: null,
-    });
-
     try {
       const dashboard =
-        await window.FinancebotApi.getDashboard(period);
+        await window.FinancebotApi.getDashboard(
+          period
+        );
 
       window.FinancebotState?.setState({
         dashboard,
-        loading: false,
         error: null,
       });
 
-      this.renderDashboard(page, dashboard);
+      this.renderDashboard(
+        page,
+        dashboard
+      );
     } catch (error) {
       console.error(
         'Financebot Home: dashboard loading failed',
@@ -56,8 +60,9 @@ const FinancebotHomePage = {
       );
 
       window.FinancebotState?.setState({
-        loading: false,
-        error: error.message || 'Не удалось загрузить данные',
+        error:
+          error.message ||
+          'Не удалось загрузить данные',
       });
 
       this.renderError(page);
@@ -65,12 +70,19 @@ const FinancebotHomePage = {
   },
 
   renderDashboard(page, dashboard) {
-    const income = Number(dashboard?.income || 0);
-    const expenses = Number(dashboard?.expenses || 0);
-    const net = Number(dashboard?.net || 0);
-    const transactions = Number(
-      dashboard?.transactions || 0
-    );
+    const income =
+      Number(dashboard?.income || 0);
+
+    const expenses =
+      Number(dashboard?.expenses || 0);
+
+    const net =
+      Number(dashboard?.net || 0);
+
+    const transactions =
+      Number(
+        dashboard?.transactions || 0
+      );
 
     page.innerHTML = `
       <header class="page-header">
@@ -165,13 +177,19 @@ const FinancebotHomePage = {
     transactions
   ) {
     const incomeContainer =
-      page.querySelector('#home-income');
+      page.querySelector(
+        '#home-income'
+      );
 
     const expensesContainer =
-      page.querySelector('#home-expenses');
+      page.querySelector(
+        '#home-expenses'
+      );
 
     const transactionsContainer =
-      page.querySelector('#home-transactions');
+      page.querySelector(
+        '#home-transactions'
+      );
 
     if (
       !incomeContainer ||
@@ -181,40 +199,45 @@ const FinancebotHomePage = {
       return;
     }
 
-    if (window.FinancebotStatCard) {
-      incomeContainer.appendChild(
-        window.FinancebotStatCard.render({
-          label: 'Доходы',
-          value: income,
-          suffix: 'PLN',
-          type: 'income',
-          icon: '↗',
-        })
-      );
-
-      expensesContainer.appendChild(
-        window.FinancebotStatCard.render({
-          label: 'Расходы',
-          value: expenses,
-          suffix: 'PLN',
-          type: 'expense',
-          icon: '↘',
-        })
-      );
-
-      transactionsContainer.appendChild(
-        window.FinancebotStatCard.render({
-          label: 'Операции',
-          value: transactions,
-          suffix: '',
-          type: 'default',
-          icon: '•',
-        })
-      );
+    if (!window.FinancebotStatCard) {
+      return;
     }
+
+    incomeContainer.appendChild(
+      window.FinancebotStatCard.render({
+        label: 'Доходы',
+        value: income,
+        suffix: 'PLN',
+        type: 'income',
+        icon: '↗',
+      })
+    );
+
+    expensesContainer.appendChild(
+      window.FinancebotStatCard.render({
+        label: 'Расходы',
+        value: expenses,
+        suffix: 'PLN',
+        type: 'expense',
+        icon: '↘',
+      })
+    );
+
+    transactionsContainer.appendChild(
+      window.FinancebotStatCard.render({
+        label: 'Операции',
+        value: transactions,
+        suffix: '',
+        type: 'default',
+        icon: '•',
+      })
+    );
   },
 
-  renderRecentTransactions(page, transactions) {
+  renderRecentTransactions(
+    page,
+    transactions
+  ) {
     const list =
       page.querySelector(
         '#home-transactions-list'
@@ -231,13 +254,19 @@ const FinancebotHomePage = {
         list.appendChild(
           window.FinancebotEmptyState.render({
             title: 'Операций пока нет',
+
             description:
               'Добавьте первую операцию, чтобы начать вести учёт.',
-            actionLabel: 'Добавить операцию',
+
+            actionLabel:
+              'Добавить операцию',
+
             action: () => {
               window.FinancebotRouter?.navigate(
                 'add-operation'
               );
+
+              window.FinancebotApp?.render();
             },
           })
         );
@@ -246,38 +275,52 @@ const FinancebotHomePage = {
       return;
     }
 
-    transactions.forEach((transaction) => {
-      if (window.FinancebotTransactionRow) {
-        list.appendChild(
-          window.FinancebotTransactionRow.render(
-            transaction
-          )
-        );
+    transactions.forEach(
+      (transaction) => {
+        if (
+          window.FinancebotTransactionRow
+        ) {
+          list.appendChild(
+            window.FinancebotTransactionRow.render(
+              transaction
+            )
+          );
+        }
       }
-    });
+    );
   },
 
   renderError(page) {
     page.innerHTML = '';
 
-    if (window.FinancebotError) {
-      page.appendChild(
-        window.FinancebotError.render({
-          title: 'Не удалось загрузить финансы',
-          description:
-            'Проверьте соединение с Telegram и попробуйте ещё раз.',
-          actionLabel: 'Повторить',
-          action: () => {
-            const period =
-              window.FinancebotState
-                ?.getState()
-                .period || 'month';
-
-            this.load(page, period);
-          },
-        })
-      );
+    if (!window.FinancebotError) {
+      return;
     }
+
+    page.appendChild(
+      window.FinancebotError.render({
+        title:
+          'Не удалось загрузить финансы',
+
+        description:
+          'Проверьте соединение с Telegram и попробуйте ещё раз.',
+
+        actionLabel:
+          'Повторить',
+
+        action: () => {
+          const period =
+            window.FinancebotState
+              ?.getState()
+              .period || 'month';
+
+          this.load(
+            page,
+            period
+          );
+        },
+      })
+    );
   },
 
   bindActions(page) {
@@ -286,24 +329,34 @@ const FinancebotHomePage = {
         '[data-action="operations"]'
       );
 
-    if (operationsButton) {
-      operationsButton.addEventListener(
-        'click',
-        () => {
-          window.FinancebotRouter?.navigate(
-            'operations'
-          );
-        }
-      );
+    if (!operationsButton) {
+      return;
     }
+
+    operationsButton.addEventListener(
+      'click',
+      () => {
+        window.FinancebotRouter?.navigate(
+          'operations'
+        );
+
+        window.FinancebotApp?.render();
+      }
+    );
   },
 
   formatMoney(value) {
-    return new Intl.NumberFormat('pl-PL', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(Math.abs(Number(value) || 0));
+    return new Intl.NumberFormat(
+      'pl-PL',
+      {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      }
+    ).format(
+      Number(value) || 0
+    );
   },
 };
 
-window.FinancebotHomePage = FinancebotHomePage;
+window.FinancebotHomePage =
+  FinancebotHomePage;
