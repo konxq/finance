@@ -2004,6 +2004,7 @@ def run_web_server():
     # V3 FRONTEND
     # =====================================================
 
+    # Главная страница Mini App
     @api.get("/")
     def index():
 
@@ -2014,19 +2015,19 @@ def run_web_server():
             )
         )
 
-    # V3 static files are served from the v3 directory.
-    # Examples:
-    # /styles.css
-    # /app.js
-    # /telegram.js
-    # /api.js
-    # /state.js
-    # /router.js
-    # /components/...
-    # /pages/...
+    # Все остальные файлы V3:
+    #
+    # /v3/styles.css
+    # /v3/app.js
+    # /v3/api.js
+    # /v3/telegram.js
+    # /v3/state.js
+    # /v3/router.js
+    # /v3/components/...
+    # /v3/pages/...
 
     api.mount(
-        "/",
+        "/v3",
         StaticFiles(
             directory=v3_dir,
             html=True
@@ -2119,7 +2120,6 @@ def run_web_server():
         port=port,
         log_level="info"
     )
-
 # =========================================================
 # MAIN
 # =========================================================
