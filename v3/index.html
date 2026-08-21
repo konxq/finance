@@ -8,7 +8,10 @@
     content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"
   >
 
-  <meta name="theme-color" content="#f7f8f6">
+  <meta
+    name="theme-color"
+    content="#f7f8f6"
+  >
 
   <title>Financebot 3.0</title>
 
@@ -23,14 +26,34 @@
 
   <div id="app">
     <div class="app-loading">
-      <div class="app-loading-title">Financebot 3.0</div>
-      <div class="app-loading-text">Загрузка…</div>
+      <div class="app-loading-title">
+        Financebot 3.0
+      </div>
+
+      <div class="app-loading-text">
+        Загрузка…
+      </div>
     </div>
   </div>
 
-  <!-- Financebot 3.0 -->
+  <!-- Core -->
   <script src="telegram.js"></script>
   <script src="api.js"></script>
+  <script src="state.js"></script>
+  <script src="router.js"></script>
+
+  <!-- Components -->
+  <script src="components/bottom-nav.js"></script>
+  <script src="components/transaction-row.js"></script>
+  <script src="components/stat-card.js"></script>
+  <script src="components/empty-state.js"></script>
+  <script src="components/loading.js"></script>
+  <script src="components/error.js"></script>
+
+  <!-- Pages -->
+  <script src="pages/home.js"></script>
+
+  <!-- Application -->
   <script src="app.js"></script>
 
 </body>
