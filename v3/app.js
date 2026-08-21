@@ -4,6 +4,7 @@ const FinancebotApp = {
   version: '3.0',
 
   initialized: false,
+  renderedPage: null,
 
   init() {
     if (this.initialized) {
@@ -14,7 +15,6 @@ const FinancebotApp = {
 
     this.initTelegram();
     this.initRouter();
-    this.bindState();
     this.render();
   },
 
@@ -25,17 +25,13 @@ const FinancebotApp = {
   },
 
   initRouter() {
-    if (window.FinancebotRouter) {
-      window.FinancebotRouter.init();
-    }
-  },
-
-  bindState() {
-    if (!window.FinancebotState) {
+    if (!window.FinancebotRouter) {
       return;
     }
 
-    window.FinancebotState.subscribe(() => {
+    window.FinancebotRouter.init();
+
+    window.addEventListener('popstate', () => {
       this.render();
     });
   },
@@ -55,30 +51,31 @@ const FinancebotApp = {
       window.FinancebotRouter?.getCurrentPage() ||
       'home';
 
+    if (
+      this.renderedPage === page &&
+      app.querySelector('.app-shell')
+    ) {
+      return;
+    }
+
+    this.renderedPage = page;
+
     app.innerHTML = '';
 
     const shell = document.createElement('div');
-
     shell.className = 'app-shell';
 
     const content = document.createElement('div');
-
     content.className = 'app-content';
 
-    shell.appendChild(content);
-
     const bottomNav = document.createElement('div');
-
     bottomNav.className = 'app-bottom-nav';
 
+    shell.appendChild(content);
     shell.appendChild(bottomNav);
-
     app.appendChild(shell);
 
-    this.renderPage(
-      content,
-      page
-    );
+    this.renderPage(content, page);
 
     if (window.FinancebotBottomNav) {
       window.FinancebotBottomNav.render(
@@ -87,10 +84,7 @@ const FinancebotApp = {
     }
   },
 
-  async renderPage(
-    container,
-    page
-  ) {
+  async renderPage(container, page) {
     switch (page) {
       case 'home':
         if (window.FinancebotHomePage) {
@@ -126,10 +120,7 @@ const FinancebotApp = {
     }
   },
 
-  renderPlaceholder(
-    container,
-    page
-  ) {
+  renderPlaceholder(container, page) {
     const labels = {
       operations: 'Операции',
       analytics: 'Аналитика',
