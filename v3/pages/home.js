@@ -114,13 +114,28 @@ const FinancebotHomePage = {
         </div>
 
         <button
-          type="button"
-          class="home-header__profile"
-          data-action="profile"
-          aria-label="Профиль"
-        >
-          <span>•</span>
-        </button>
+  type="button"
+  class="home-header__profile"
+  data-action="profile"
+  aria-label="Профиль"
+>
+  <span>
+    <svg
+      viewBox="0 0 24 24"
+      width="16"
+      height="16"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="1.8"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      aria-hidden="true"
+    >
+      <circle cx="12" cy="8" r="3"></circle>
+      <path d="M5 20c.8-3.5 3.1-5.5 7-5.5s6.2 2 7 5.5"></path>
+    </svg>
+  </span>
+</button>
       </header>
 
       <section class="card capital-card home-balance-card">
