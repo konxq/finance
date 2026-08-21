@@ -1208,3 +1208,37 @@ button {
 .nav-item.active .nav-icon svg {
   stroke-width: 2.1;
 }
+/* =========================================================
+   Financebot 3.0 — Premium Bottom Navigation
+   ========================================================= */
+
+.bottom-nav {
+  padding-top: 7px;
+  padding-bottom: calc(7px + env(safe-area-inset-bottom));
+}
+
+.nav-item {
+  min-height: 54px;
+  gap: 5px;
+  font-size: 10px;
+  letter-spacing: -0.1px;
+}
+
+.nav-icon {
+  width: 25px;
+  height: 25px;
+}
+
+.nav-icon svg {
+  width: 23px;
+  height: 23px;
+  stroke-width: 1.75;
+}
+
+.nav-item.active .nav-icon svg {
+  stroke-width: 2.15;
+}
+
+.nav-item.active {
+  font-weight: 700;
+}
