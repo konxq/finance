@@ -68,253 +68,93 @@ const FinancebotHomePage = {
   },
 
   renderDashboard(page, dashboard) {
-    const income = Number(
-      dashboard?.income || 0
-    );
+    const income = Number(dashboard?.income || 0);
+    const expenses = Number(dashboard?.expenses || 0);
+    const net = Number(dashboard?.net || 0);
+    const transactions = Number(dashboard?.transactions || 0);
 
-    const expenses = Number(
-      dashboard?.expenses || 0
-    );
-
-    const net = Number(
-      dashboard?.net || 0
-    );
-
-    const transactions = Number(
-      dashboard?.transactions || 0
-    );
-
-    const categories = Number(
-      dashboard?.categories || 0
-    );
-
-    const avgCheck = Number(
-      dashboard?.avg_check || 0
-    );
-
-    const recent =
-      Array.isArray(dashboard?.recent)
-        ? dashboard.recent
-        : [];
+    const recent = Array.isArray(dashboard?.recent) ? dashboard.recent : [];
 
     page.innerHTML = `
       <header class="page-header home-header">
         <div class="home-header__content">
-          <div class="home-header__eyebrow">
-            FINANCEBOT
-          </div>
+          <div class="home-header__eyebrow">FINANCEBOT</div>
 
-          <h1 class="page-title">
-            Финансы
-          </h1>
+          <h1 class="page-title">Финансы</h1>
 
-          <div class="page-subtitle">
-            Обзор за ${this.getPeriodLabel()}
-          </div>
+          <div class="page-subtitle">Обзор за ${this.getPeriodLabel()}</div>
         </div>
 
-        <button
-  type="button"
-  class="home-header__profile"
-  data-action="profile"
-  aria-label="Профиль"
->
-  <span>
-    <svg
-      viewBox="0 0 24 24"
-      width="16"
-      height="16"
-      fill="none"
-      stroke="currentColor"
-      stroke-width="1.8"
-      stroke-linecap="round"
-      stroke-linejoin="round"
-      aria-hidden="true"
-    >
-      <circle cx="12" cy="8" r="3"></circle>
-      <path d="M5 20c.8-3.5 3.1-5.5 7-5.5s6.2 2 7 5.5"></path>
-    </svg>
-  </span>
-</button>
+        <button type="button" class="home-header__profile" data-action="profile" aria-label="Профиль">
+          <span>
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="12" cy="8" r="3"></circle>
+              <path d="M5 20c.8-3.5 3.1-5.5 7-5.5s6.2 2 7 5.5"></path>
+            </svg>
+          </span>
+        </button>
       </header>
 
       <section class="card capital-card home-balance-card">
-        <div class="capital-label">
-          Баланс
-        </div>
-
-        <div class="capital-value">
-          ${this.formatMoney(net)}
-          <span class="capital-currency">
-            PLN
-          </span>
-        </div>
-
-        <div class="capital-change">
-          ${
-            net >= 0
-              ? 'Ваш баланс в плюсе'
-              : 'Расходы превышают доходы'
-          }
-        </div>
-
-        <div class="home-balance-card__decor">
-          <span></span>
-          <span></span>
-          <span></span>
-        </div>
+        <div class="capital-label">Баланс</div>
+        <div class="capital-value">${this.formatMoney(net)}<span class="capital-currency">PLN</span></div>
+        <div class="capital-change">${net >= 0 ? 'Ваш баланс в плюсе' : 'Расходы превышают доходы'}</div>
+        <div class="home-balance-card__decor"><span></span><span></span><span></span></div>
       </section>
 
       <section class="stats-grid home-stats">
-        <div
-          id="home-income"
-          class="card stat-card"
-        ></div>
-
-        <div
-          id="home-expenses"
-          class="card stat-card"
-        ></div>
-
-        <div
-          id="home-transactions"
-          class="card stat-card"
-        ></div>
+        <div id="home-income" class="card stat-card"></div>
+        <div id="home-expenses" class="card stat-card"></div>
       </section>
 
-      <section class="section home-overview-section">
+      <section class="section home-dynamics-section">
         <div class="section-header">
-          <h2 class="section-title">
-            Обзор
-          </h2>
-
-          <button
-            type="button"
-            class="section-action"
-            data-action="analytics"
-          >
-            Подробнее
-          </button>
+          <h2 class="section-title">Динамика</h2>
+          <div class="chart-toggle" role="tablist" aria-label="Переключатель доходы расходы">
+            <button id="toggle-income" class="toggle-btn" role="tab" aria-selected="false">Доходы</button>
+            <button id="toggle-expense" class="toggle-btn active" role="tab" aria-selected="true">Расходы</button>
+          </div>
         </div>
 
-        <div class="card home-overview-card">
-          <div class="home-overview-row">
-            <div>
-              <div class="home-overview-label">
-                Средний чек
-              </div>
-
-              <div class="home-overview-value">
-                ${this.formatMoney(avgCheck)}
-                <span>PLN</span>
-              </div>
-            </div>
-
-            <div class="home-overview-icon">
-              ≈
-            </div>
-          </div>
-
-          <div class="home-overview-divider"></div>
-
-          <div class="home-overview-row">
-            <div>
-              <div class="home-overview-label">
-                Категории расходов
-              </div>
-
-              <div class="home-overview-value">
-                ${categories}
-              </div>
-            </div>
-
-            <div class="home-overview-icon">
-              #
-            </div>
+        <div class="card chart-card card-padding">
+          <div id="chart-container" class="chart-container">
+            <canvas id="dynamics-canvas" class="chart-canvas"></canvas>
           </div>
         </div>
       </section>
 
       <section class="section home-transactions-section">
         <div class="section-header">
-          <h2 class="section-title">
-            Последние операции
-          </h2>
-
-          <button
-            type="button"
-            class="section-action"
-            data-action="operations"
-          >
-            Все
-          </button>
+          <h2 class="section-title">Последние операции</h2>
+          <button type="button" class="section-action" data-action="operations">Все</button>
         </div>
 
         <div class="card card-padding">
-          <div
-            id="home-transactions-list"
-            class="transaction-list"
-          ></div>
+          <div id="home-transactions-list" class="transaction-list"></div>
         </div>
       </section>
 
-      <button
-        type="button"
-        class="fab"
-        data-action="add"
-        aria-label="Добавить операцию"
-      >
-        +
-      </button>
+      <button type="button" class="fab" data-action="add" aria-label="Добавить операцию">+</button>
     `;
 
-    this.renderStatCards(
-      page,
-      income,
-      expenses,
-      transactions
-    );
+    // render stat cards (only income and expenses)
+    this.renderStatCards(page, income, expenses);
 
-    this.renderRecentTransactions(
-      page,
-      recent
-    );
+    // bind dynamics chart (must exist and use dashboard.daily)
+    this.bindDynamicsHandlers(page, dashboard);
+
+    this.renderRecentTransactions(page, recent);
 
     this.bindActions(page);
   },
 
-  renderStatCards(
-    page,
-    income,
-    expenses,
-    transactions
-  ) {
-    const incomeContainer =
-      page.querySelector(
-        '#home-income'
-      );
+  renderStatCards(page, income, expenses) {
+    const incomeContainer = page.querySelector('#home-income');
+    const expensesContainer = page.querySelector('#home-expenses');
 
-    const expensesContainer =
-      page.querySelector(
-        '#home-expenses'
-      );
+    if (!incomeContainer || !expensesContainer) return;
 
-    const transactionsContainer =
-      page.querySelector(
-        '#home-transactions'
-      );
-
-    if (
-      !incomeContainer ||
-      !expensesContainer ||
-      !transactionsContainer
-    ) {
-      return;
-    }
-
-    if (!window.FinancebotStatCard) {
-      return;
-    }
+    if (!window.FinancebotStatCard) return;
 
     incomeContainer.appendChild(
       window.FinancebotStatCard.render({
@@ -335,27 +175,10 @@ const FinancebotHomePage = {
         icon: '↘',
       })
     );
-
-    transactionsContainer.appendChild(
-      window.FinancebotStatCard.render({
-        label: 'Операции',
-        value: transactions,
-        suffix: '',
-        type: 'default',
-        icon: '•',
-      })
-    );
   },
 
-  renderRecentTransactions(
-    page,
-    transactions
-  ) {
-    const list =
-      page.querySelector(
-        '#home-transactions-list'
-      );
-
+  renderRecentTransactions(page, transactions) {
+    const list = page.querySelector('#home-transactions-list');
     if (!list) return;
 
     list.innerHTML = '';
@@ -365,38 +188,181 @@ const FinancebotHomePage = {
         list.appendChild(
           window.FinancebotEmptyState.render({
             title: 'Операций пока нет',
-
-            description:
-              'Добавьте первую операцию, чтобы начать вести учёт.',
-
-            actionLabel:
-              'Добавить операцию',
-
-            action: () => {
-              window.FinancebotRouter?.navigate(
-                'add-operation'
-              );
-            },
+            description: 'Добавьте первую операцию, чтобы начать вести учёт.',
+            actionLabel: 'Добавить операцию',
+            action: () => { window.FinancebotRouter?.navigate('add-operation'); },
           })
         );
       }
-
       return;
     }
 
-    transactions
-      .slice(0, 5)
-      .forEach((transaction) => {
-        if (
-          window.FinancebotTransactionRow
-        ) {
-          list.appendChild(
-            window.FinancebotTransactionRow.render(
-              transaction
-            )
-          );
-        }
-      });
+    transactions.slice(0, 5).forEach((transaction) => {
+      if (window.FinancebotTransactionRow) {
+        list.appendChild(window.FinancebotTransactionRow.render(transaction));
+      }
+    });
+  },
+
+  // --- Dynamics chart helpers ---
+  getMonthRangeDates() {
+    const now = new Date();
+    const start = new Date(now.getFullYear(), now.getMonth(), 1);
+    const end = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+    return { start, end };
+  },
+
+  prepareMonthlyData(daily) {
+    const { start, end } = this.getMonthRangeDates();
+    const map = {};
+    (daily || []).forEach(r => { map[r.date] = { income: Number(r.income || 0), expenses: Number(r.expenses || 0) }; });
+    const result = [];
+    let cursor = new Date(start);
+    while (cursor < end) {
+      const y = cursor.getFullYear();
+      const m = String(cursor.getMonth() + 1).padStart(2, '0');
+      const d = String(cursor.getDate()).padStart(2, '0');
+      const key = `${y}-${m}-${d}`;
+      result.push({ date: key, income: map[key]?.income || 0, expenses: map[key]?.expenses || 0 });
+      cursor.setDate(cursor.getDate() + 1);
+    }
+    return result;
+  },
+
+  renderDynamicsChart(container, daily, mode = 'expenses') {
+    const canvas = container.querySelector('#dynamics-canvas');
+    if (!canvas) return;
+
+    // ensure CSS controls visual height; make canvas pixel-perfect using DPR
+    const rect = container.getBoundingClientRect();
+    const width = Math.max(320, rect.width || container.clientWidth || 320);
+    const cssHeight = parseInt(getComputedStyle(canvas).height, 10) || 220;
+    const DPR = window.devicePixelRatio || 1;
+
+    // set pixel size
+    canvas.width = Math.round(width * DPR);
+    canvas.height = Math.round(cssHeight * DPR);
+
+    const ctx = canvas.getContext('2d');
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    ctx.clearRect(0, 0, width, cssHeight);
+
+    // prepare data
+    const monthly = this.prepareMonthlyData(daily || []);
+    const labels = monthly.map(r => r.date);
+    const incomes = monthly.map(r => r.income);
+    const expenses = monthly.map(r => r.expenses);
+    const values = mode === 'income' ? incomes : expenses;
+
+    // drawing area
+    const padding = { left: 36, right: 12, top: 12, bottom: 36 };
+    const w = width - padding.left - padding.right;
+    const h = cssHeight - padding.top - padding.bottom;
+
+    const maxVal = Math.max(1, ...values);
+    const minVal = 0;
+
+    const xFor = i => padding.left + (i / Math.max(1, values.length - 1)) * w;
+    const yFor = v => padding.top + h - ((v - minVal) / (maxVal - minVal || 1)) * h;
+
+    // build points
+    const points = values.map((v, i) => ({ x: xFor(i), y: yFor(v) }));
+
+    // fill
+    if (points.length) {
+      ctx.beginPath();
+      ctx.moveTo(points[0].x, points[0].y);
+      for (let i = 0; i < points.length - 1; i++) {
+        const xc = (points[i].x + points[i + 1].x) / 2;
+        const yc = (points[i].y + points[i + 1].y) / 2;
+        ctx.quadraticCurveTo(points[i].x, points[i].y, xc, yc);
+      }
+      const last = points[points.length - 1];
+      ctx.lineTo(last.x, last.y);
+      ctx.lineTo(last.x, padding.top + h);
+      ctx.lineTo(points[0].x, padding.top + h);
+      ctx.closePath();
+
+      const fillColor = mode === 'income' ? 'rgba(53,169,104,0.12)' : 'rgba(239,107,112,0.08)';
+      ctx.fillStyle = fillColor;
+      ctx.fill();
+    }
+
+    // line
+    if (points.length) {
+      ctx.beginPath();
+      ctx.moveTo(points[0].x, points[0].y);
+      for (let i = 0; i < points.length - 1; i++) {
+        const xc = (points[i].x + points[i + 1].x) / 2;
+        const yc = (points[i].y + points[i + 1].y) / 2;
+        ctx.quadraticCurveTo(points[i].x, points[i].y, xc, yc);
+      }
+      const last = points[points.length - 1];
+      ctx.lineTo(last.x, last.y);
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = mode === 'income' ? 'rgba(53,169,104,1)' : 'rgba(239,107,112,1)';
+      ctx.stroke();
+    }
+
+    // x-axis labels: approx 7 ticks
+    const ticks = Math.min(7, labels.length);
+    const step = Math.max(1, Math.ceil(labels.length / ticks));
+    ctx.fillStyle = 'rgba(32,37,34,0.6)';
+    ctx.font = '12px Inter, system-ui, -apple-system';
+    ctx.textAlign = 'center';
+    for (let i = 0; i < labels.length; i += step) {
+      const date = labels[i];
+      const parts = date.split('-');
+      const day = String(Number(parts[2]));
+      const month = parts[1];
+      const label = `${day}.${month}`;
+      ctx.fillText(label, xFor(i), padding.top + h + 20);
+    }
+
+    // store last render state for redraw on resize
+    canvas._last = { daily: daily, mode: mode };
+  },
+
+  bindDynamicsHandlers(page, dashboard) {
+    const container = page.querySelector('#chart-container');
+    if (!container) return;
+
+    const canvas = container.querySelector('#dynamics-canvas');
+    if (!canvas) return;
+
+    // ensure CSS height is set if not already
+    if (!canvas.style.height) canvas.style.height = '220px';
+
+    const render = (mode) => this.renderDynamicsChart(container, dashboard?.daily || [], mode);
+
+    // initial render with expenses
+    render('expenses');
+
+    const btnIncome = page.querySelector('#toggle-income');
+    const btnExpense = page.querySelector('#toggle-expense');
+
+    const setActive = (mode) => {
+      if (btnIncome) btnIncome.classList.toggle('active', mode === 'income');
+      if (btnExpense) btnExpense.classList.toggle('active', mode === 'expenses');
+      render(mode);
+    };
+
+    btnIncome?.addEventListener('click', () => setActive('income'));
+    btnExpense?.addEventListener('click', () => setActive('expenses'));
+
+    // handle resize: debounced
+    const resizeHandler = () => {
+      const mode = (btnExpense && btnExpense.classList.contains('active')) ? 'expenses' : 'income';
+      render(mode);
+    };
+
+    let resizeTimer = null;
+    const onResize = () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(resizeHandler, 120); };
+
+    window.addEventListener('resize', onResize);
+
+    // store to allow cleanup if needed
+    canvas._resizeListener = onResize;
   },
 
   renderError(page) {
@@ -408,80 +374,34 @@ const FinancebotHomePage = {
 
     page.appendChild(
       window.FinancebotError.render({
-        title:
-          'Не удалось загрузить финансы',
-
-        description:
-          'Проверьте соединение с Telegram и попробуйте ещё раз.',
-
-        actionLabel:
-          'Повторить',
-
-        action: () => {
-          this.render(page);
-        },
+        title: 'Не удалось загрузить финансы',
+        description: 'Проверьте соединение с Telegram и попробуйте ещё раз.',
+        actionLabel: 'Повторить',
+        action: () => { this.render(page); },
       })
     );
   },
 
   bindActions(page) {
-    const actions = {
-      add: 'add-operation',
-      operations: 'operations',
-      analytics: 'analytics',
-      profile: 'profile',
-    };
+    const actions = { add: 'add-operation', operations: 'operations', analytics: 'analytics', profile: 'profile' };
 
-    Object.entries(actions).forEach(
-      ([action, route]) => {
-        const elements =
-          page.querySelectorAll(
-            `[data-action="${action}"]`
-          );
-
-        elements.forEach((element) => {
-          element.addEventListener(
-            'click',
-            () => {
-              window.FinancebotRouter?.navigate(
-                route
-              );
-            }
-          );
-        });
-      }
-    );
+    Object.entries(actions).forEach(([action, route]) => {
+      const elements = page.querySelectorAll(`[data-action="${action}"]`);
+      elements.forEach((element) => {
+        element.addEventListener('click', () => { window.FinancebotRouter?.navigate(route); });
+      });
+    });
   },
 
   getPeriodLabel() {
-    const period =
-      window.FinancebotState
-        ?.getState()
-        .period || 'month';
-
-    const labels = {
-      day: 'сегодня',
-      week: 'эту неделю',
-      month: 'этот месяц',
-      year: 'этот год',
-      all: 'всё время',
-    };
-
+    const period = window.FinancebotState?.getState().period || 'month';
+    const labels = { day: 'сегодня', week: 'эту неделю', month: 'этот месяц', year: 'этот год', all: 'всё время' };
     return labels[period] || 'этот месяц';
   },
 
   formatMoney(value) {
-    return new Intl.NumberFormat(
-      'pl-PL',
-      {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      }
-    ).format(
-      Number(value) || 0
-    );
+    return new Intl.NumberFormat('pl-PL', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(value) || 0);
   },
 };
 
-window.FinancebotHomePage =
-  FinancebotHomePage;
+window.FinancebotHomePage = FinancebotHomePage;
