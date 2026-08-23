@@ -13,6 +13,8 @@
   --orange: #ff9f0a;
 
   --border: rgba(255,255,255,.07);
+  /* light-border used for light cards inside dark UI */
+  --border-light: rgba(16,24,40,0.06);
 }
 
 * {
@@ -103,39 +105,41 @@ select {
   to { transform: rotate(360deg); }
 }
 
+/* -----------------------------
+   HERO / BALANCE (Financebot 3.0)
+   ----------------------------- */
 .hero {
   position: relative;
-  overflow: hidden;
+  overflow: visible;
 
-  background: radial-gradient(circle at 85% 10%, rgba(255,255,255,.18), transparent 35%), linear-gradient(135deg, #6747ff 0%, #7d4cff 45%, #a457ff 100%);
-
-  border-radius: 26px;
-  padding: 22px;
+  /* Light minimalist card inside the existing dark UI */
+  background: #ffffff;
+  color: #0b0b0b; /* dark text for the card */
+  border: 1px solid var(--border-light);
+  border-radius: 14px;
+  padding: 16px;
   margin-bottom: 14px;
-  box-shadow: 0 18px 45px rgba(103,71,255,.25);
+  box-shadow: 0 8px 20px rgba(8,15,26,0.06);
 }
 
+/* Remove decorative circle used previously */
 .hero::after {
-  content: "";
-  position: absolute;
-  width: 150px;
-  height: 150px;
-  right: -60px;
-  bottom: -70px;
-  border-radius: 50%;
-  background: rgba(255,255,255,.08);
+  display: none;
 }
 
-.hero-label { font-size: 14px; opacity: .78; }
-.hero-balance { margin-top: 5px; font-size: 39px; line-height: 1.1; font-weight: 900; letter-spacing: -1px; }
-.hero-balance.negative, .hero-balance.positive { color: #fff; }
-.hero-period { margin-top: 5px; font-size: 13px; opacity: .7; }
+.hero-label { font-size: 13px; color: rgba(11,11,11,0.6); }
+.hero-balance { margin-top: 6px; font-size: 40px; line-height: 1.05; font-weight: 900; letter-spacing: -0.6px; }
+.hero-balance.positive { color: var(--green); }
+.hero-balance.negative { color: var(--red); }
+.hero-status { margin-top: 6px; font-size: 13px; color: rgba(11,11,11,0.65); }
+.hero-period { margin-top: 6px; font-size: 13px; color: rgba(11,11,11,0.55); }
 
-.hero-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 18px; }
-.hero-stat { background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.08); border-radius: 17px; padding: 13px; backdrop-filter: blur(10px); }
-.hero-stat-label { font-size: 13px; opacity: .78; }
-.hero-stat-value { margin-top: 4px; font-size: 19px; font-weight: 800; }
+.hero-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 14px; }
+.hero-stat { background: rgba(8,15,26,0.02); border: 1px solid rgba(8,15,26,0.04); border-radius: 12px; padding: 10px; }
+.hero-stat-label { font-size: 13px; color: rgba(11,11,11,0.6); }
+.hero-stat-value { margin-top: 4px; font-size: 16px; font-weight: 800; color: #0b0b0b; }
 
+/* Quick grid (removed from DOM) kept here in case reused elsewhere */
 .quick-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 14px; }
 .quick-card { background: var(--card); border-radius: 18px; padding: 14px; min-width: 0; }
 .quick-icon { font-size: 19px; margin-bottom: 8px; }
@@ -187,8 +191,8 @@ select {
   .top-actions { flex-shrink: 0; }
   select { min-width: 94px; padding: 10px; }
   .refresh { width: 42px; height: 42px; }
-  .hero { padding: 20px; }
-  .hero-balance { font-size: 35px; }
+  .hero { padding: 14px; }
+  .hero-balance { font-size: 34px; }
   .quick-grid { grid-template-columns: 1fr 1fr; }
   .quick-card:last-child { grid-column: span 2; }
   .two-columns { grid-template-columns: 1fr; }
@@ -198,6 +202,6 @@ select {
 
 @media (max-width: 360px) {
   .title { font-size: 23px; }
-  .hero-balance { font-size: 31px; }
+  .hero-balance { font-size: 30px; }
   .hero-stats { grid-template-columns: 1fr; }
 }

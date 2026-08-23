@@ -1988,19 +1988,66 @@ def run_web_server():
     import uvicorn
 
     api = FastAPI()
-    web_dir = os.path.join(os.path.dirname(__file__), "web")
-    api.mount(
-        "/static",
-        StaticFiles(directory=os.path.join(web_dir, "static")),
-        name="static"
+
+    # =====================================================
+    # DIRECTORIES
+    # =====================================================
+
+    base_dir = os.path.dirname(
+        os.path.abspath(__file__)
     )
+
+    v3_dir = os.path.join(
+        base_dir,
+        "v3"
+    )
+
+    # =====================================================
+    # FINANCEBOT 3.0 FRONTEND
+    # =====================================================
+
+    # Главная страница Mini App.
+    #
+    # Теперь / открывает именно V3,
+    # а не старый web/index.html.
 
     @api.get("/")
     def index():
 
         return FileResponse(
-            os.path.join(web_dir, "index.html")
+            os.path.join(
+                v3_dir,
+                "index.html"
+            )
         )
+
+    # =====================================================
+    # V3 STATIC FILES
+    # =====================================================
+
+    # Все файлы нового frontend доступны через /v3/
+    #
+    # /v3/styles.css
+    # /v3/app.js
+    # /v3/api.js
+    # /v3/telegram.js
+    # /v3/state.js
+    # /v3/router.js
+    # /v3/components/...
+    # /v3/pages/...
+
+    api.mount(
+        "/v3",
+        StaticFiles(
+            directory=v3_dir,
+            html=True
+        ),
+        name="v3"
+    )
+
+    # =====================================================
+    # MINI APP API
+    # =====================================================
 
     @api.get("/api/dashboard")
     def dashboard(
@@ -2014,7 +2061,9 @@ def run_web_server():
         )
 
         # Дополнительный вариант авторизации:
+        #
         # Authorization: tma <initData>
+
         if not init_data:
 
             authorization = request.headers.get(
@@ -2023,6 +2072,7 @@ def run_web_server():
             )
 
             if authorization.startswith("tma "):
+
                 init_data = authorization[4:]
 
         logger.info(
@@ -2045,6 +2095,8 @@ def run_web_server():
                 status_code=401,
                 detail="Invalid Telegram init data"
             )
+
+        # Разрешённые периоды
 
         if period not in {
             "day",
@@ -2077,14 +2129,17 @@ def run_web_server():
         port
     )
 
+    logger.info(
+        "Financebot 3.0 frontend directory: %s",
+        v3_dir
+    )
+
     uvicorn.run(
         api,
         host="0.0.0.0",
         port=port,
         log_level="info"
     )
-
-
 # =========================================================
 # MAIN
 # =========================================================
