@@ -684,6 +684,10 @@ if (seg.length === 1) {
     let resizeTimer = null;
     const onResize = () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(resizeHandler, 120); };
 
+    if (canvas._resizeListener) {
+  window.removeEventListener('resize', canvas._resizeListener);
+}
+    
     window.addEventListener('resize', onResize);
 
     // store to allow cleanup if needed
