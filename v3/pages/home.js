@@ -298,10 +298,6 @@ if (curSeg.length) {
 
 // Visual parameters
 const perDay = w / Math.max(1, values.length);
-const bumpRadius = Math.max(
-  10,
-  Math.min(28, Math.round(perDay * 1.0))
-);
 
 const fillColor =
   mode === 'income'
