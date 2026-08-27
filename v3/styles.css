@@ -973,6 +973,10 @@ button {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
+.home-stats > .card {
+  margin-top: 0;
+}
+
 .home-stats .stat-card {
   min-height: 92px;
 }
