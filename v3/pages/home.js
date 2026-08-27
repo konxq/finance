@@ -323,54 +323,167 @@ const clamp = (v, a, b) =>
 // Draw every segment independently.
 for (const seg of segments) {
 
-  // One active day = isolated bump
-  if (seg.length === 1) {
+  // One active day = soft isolated bump
+if (seg.length === 1) {
+  const p = seg[0];
 
-    const p = seg[0];
-    const x = p.x;
-    const y = p.y;
-    const r = bumpRadius;
+  const x = p.x;
+  const y = p.y;
 
-    // Fill bump
-    ctx.beginPath();
-    ctx.moveTo(x - r, baseY);
+  // Wider and softer than the previous sharp spike.
+  const r = Math.max(
+    18,
+    Math.min(42, Math.round(perDay * 1.45))
+  );
 
-    ctx.quadraticCurveTo(
-      x - r / 2,
-      y + (baseY - y) * 0.6,
-      x,
-      y
+  // Keep the bump inside the chart area.
+  const leftX = Math.max(padding.left, x - r);
+  const rightX = Math.min(
+    padding.left + w,
+    x + r
+  );
+
+  const leftR = x - leftX;
+  const rightR = rightX - x;
+
+  /*
+   * Soft vertical gradient:
+   * stronger near the actual value,
+   * almost invisible near the baseline.
+   */
+  const gradient = ctx.createLinearGradient(
+    0,
+    y,
+    0,
+    baseY
+  );
+
+  if (mode === 'income') {
+    gradient.addColorStop(
+      0,
+      'rgba(53,169,104,0.18)'
     );
 
-    ctx.quadraticCurveTo(
-      x + r / 2,
-      y + (baseY - y) * 0.6,
-      x + r,
-      baseY
+    gradient.addColorStop(
+      0.55,
+      'rgba(53,169,104,0.08)'
     );
 
-    ctx.closePath();
-
-    ctx.fillStyle = fillColor;
-    ctx.fill();
-
-    // Stroke bump
-    ctx.beginPath();
-
-    ctx.moveTo(
-      x - r / 2,
-      y + (baseY - y) * 0.6
+    gradient.addColorStop(
+      1,
+      'rgba(53,169,104,0.015)'
+    );
+  } else {
+    gradient.addColorStop(
+      0,
+      'rgba(239,107,112,0.16)'
     );
 
-    ctx.quadraticCurveTo(
-      x,
-      y,
-      x + r / 2,
-      y + (baseY - y) * 0.6
+    gradient.addColorStop(
+      0.55,
+      'rgba(239,107,112,0.07)'
     );
 
-    ctx.strokeStyle = strokeColor;
-    ctx.stroke();
+    gradient.addColorStop(
+      1,
+      'rgba(239,107,112,0.012)'
+    );
+  }
+
+  /*
+   * Fill:
+   *
+   * baseline
+   *    ╲
+   *     ╲
+   *      ╭────╮
+   *      │    │
+   *     ╱      ╲
+   *    ╱        ╲
+   * baseline
+   *
+   * The control points at the peak are exactly
+   * on the peak, giving it a smooth horizontal tangent.
+   */
+  ctx.beginPath();
+
+  ctx.moveTo(
+    leftX,
+    baseY
+  );
+
+  ctx.bezierCurveTo(
+    leftX + leftR * 0.20,
+    baseY,
+    x - leftR * 0.55,
+    y,
+    x,
+    y
+  );
+
+  ctx.bezierCurveTo(
+    x + rightR * 0.55,
+    y,
+    rightX - rightR * 0.20,
+    baseY,
+    rightX,
+    baseY
+  );
+
+  ctx.closePath();
+
+  ctx.fillStyle = gradient;
+  ctx.fill();
+
+  /*
+   * Stroke:
+   * draw the same smooth upper contour.
+   */
+  ctx.beginPath();
+
+  ctx.moveTo(
+    leftX,
+    baseY
+  );
+
+  ctx.bezierCurveTo(
+    leftX + leftR * 0.20,
+    baseY,
+    x - leftR * 0.55,
+    y,
+    x,
+    y
+  );
+
+  ctx.bezierCurveTo(
+    x + rightR * 0.55,
+    y,
+    rightX - rightR * 0.20,
+    baseY,
+    rightX,
+    baseY
+  );
+
+  ctx.strokeStyle = strokeColor;
+  ctx.stroke();
+
+  /*
+   * Small point at the exact data value.
+   * This makes it visually obvious that the curve
+   * reaches the real day's value.
+   */
+  ctx.beginPath();
+
+  ctx.arc(
+    x,
+    y,
+    3,
+    0,
+    Math.PI * 2
+  );
+
+  ctx.fillStyle = strokeColor;
+  ctx.fill();
 
   } else {
 
