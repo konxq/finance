@@ -235,7 +235,7 @@ const FinancebotHomePage = {
 
     // ensure CSS controls visual height; make canvas pixel-perfect using DPR
     const rect = container.getBoundingClientRect();
-    const width = Math.max(320, rect.width || container.clientWidth || 320);
+    const width = Math.max(1, rect.width || container.clientWidth || 1);
     const cssHeight = parseInt(getComputedStyle(canvas).height, 10) || 220;
     const DPR = window.devicePixelRatio || 1;
 
