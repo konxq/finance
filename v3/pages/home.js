@@ -103,8 +103,8 @@ const FinancebotHomePage = {
       </section>
 
       <section class="stats-grid home-stats">
-        <div id="home-income" class="card stat-card"></div>
-        <div id="home-expenses" class="card stat-card"></div>
+        <div id="home-income" class="card"></div>
+        <div id="home-expenses" class="card"></div>
       </section>
 
       <section class="section home-dynamics-section">
@@ -265,369 +265,44 @@ const FinancebotHomePage = {
     const xFor = i => padding.left + (i / Math.max(1, values.length - 1)) * w;
     const yFor = v => padding.top + h - ((v - minVal) / (maxVal - minVal || 1)) * h;
 
-    // Build points array: exact X for each calendar day, exact Y for each day's value.
-const points = values.map((v, i) => ({
-  x: xFor(i),
-  y: yFor(v),
-  v: Number(v) || 0,
-  i
-}));
+    // build points
+    const points = values.map((v, i) => ({ x: xFor(i), y: yFor(v) }));
 
-const baseY = padding.top + h;
+    // fill
+    if (points.length) {
+      ctx.beginPath();
+      ctx.moveTo(points[0].x, points[0].y);
+      for (let i = 0; i < points.length - 1; i++) {
+        const xc = (points[i].x + points[i + 1].x) / 2;
+        const yc = (points[i].y + points[i + 1].y) / 2;
+        ctx.quadraticCurveTo(points[i].x, points[i].y, xc, yc);
+      }
+      const last = points[points.length - 1];
+      ctx.lineTo(last.x, last.y);
+      ctx.lineTo(last.x, padding.top + h);
+      ctx.lineTo(points[0].x, padding.top + h);
+      ctx.closePath();
 
-// Segment by consecutive non-zero days.
-const segments = [];
-let curSeg = [];
-
-for (let i = 0; i < points.length; i++) {
-  const p = points[i];
-
-  if (p.v > 0) {
-    curSeg.push(p);
-  } else {
-    if (curSeg.length) {
-      segments.push(curSeg);
-      curSeg = [];
-    }
-  }
-}
-
-if (curSeg.length) {
-  segments.push(curSeg);
-}
-
-// Visual parameters
-const perDay = w / Math.max(1, values.length);
-
-const fillColor =
-  mode === 'income'
-    ? 'rgba(53,169,104,0.12)'
-    : 'rgba(239,107,112,0.08)';
-
-const strokeColor =
-  mode === 'income'
-    ? 'rgba(53,169,104,1)'
-    : 'rgba(239,107,112,1)';
-
-ctx.lineWidth = 2;
-ctx.lineJoin = 'round';
-ctx.lineCap = 'round';
-
-const clamp = (v, a, b) =>
-  Math.max(a, Math.min(b, v));
-
-// Draw every segment independently.
-for (const seg of segments) {
-
-  // One active day = soft isolated bump
-if (seg.length === 1) {
-  const p = seg[0];
-
-  const x = p.x;
-  const y = p.y;
-
-  // Wider and softer than the previous sharp spike.
-  const r = Math.max(
-    18,
-    Math.min(42, Math.round(perDay * 1.45))
-  );
-
-  // Keep the bump inside the chart area.
-  const leftX = Math.max(padding.left, x - r);
-  const rightX = Math.min(
-    padding.left + w,
-    x + r
-  );
-
-  const leftR = x - leftX;
-  const rightR = rightX - x;
-
-  /*
-   * Soft vertical gradient:
-   * stronger near the actual value,
-   * almost invisible near the baseline.
-   */
-  const gradient = ctx.createLinearGradient(
-    0,
-    y,
-    0,
-    baseY
-  );
-
-  if (mode === 'income') {
-    gradient.addColorStop(
-      0,
-      'rgba(53,169,104,0.18)'
-    );
-
-    gradient.addColorStop(
-      0.55,
-      'rgba(53,169,104,0.08)'
-    );
-
-    gradient.addColorStop(
-      1,
-      'rgba(53,169,104,0.015)'
-    );
-  } else {
-    gradient.addColorStop(
-      0,
-      'rgba(239,107,112,0.16)'
-    );
-
-    gradient.addColorStop(
-      0.55,
-      'rgba(239,107,112,0.07)'
-    );
-
-    gradient.addColorStop(
-      1,
-      'rgba(239,107,112,0.012)'
-    );
-  }
-
-  /*
-   * Fill:
-   *
-   * baseline
-   *    ╲
-   *     ╲
-   *      ╭────╮
-   *      │    │
-   *     ╱      ╲
-   *    ╱        ╲
-   * baseline
-   *
-   * The control points at the peak are exactly
-   * on the peak, giving it a smooth horizontal tangent.
-   */
-  ctx.beginPath();
-
-  ctx.moveTo(
-    leftX,
-    baseY
-  );
-
-  ctx.bezierCurveTo(
-    leftX + leftR * 0.20,
-    baseY,
-    x - leftR * 0.55,
-    y,
-    x,
-    y
-  );
-
-  ctx.bezierCurveTo(
-    x + rightR * 0.55,
-    y,
-    rightX - rightR * 0.20,
-    baseY,
-    rightX,
-    baseY
-  );
-
-  ctx.closePath();
-
-  ctx.fillStyle = gradient;
-  ctx.fill();
-
-  /*
-   * Stroke:
-   * draw the same smooth upper contour.
-   */
-  ctx.beginPath();
-
-  ctx.moveTo(
-    leftX,
-    baseY
-  );
-
-  ctx.bezierCurveTo(
-    leftX + leftR * 0.20,
-    baseY,
-    x - leftR * 0.55,
-    y,
-    x,
-    y
-  );
-
-  ctx.bezierCurveTo(
-    x + rightR * 0.55,
-    y,
-    rightX - rightR * 0.20,
-    baseY,
-    rightX,
-    baseY
-  );
-
-  ctx.strokeStyle = strokeColor;
-  ctx.stroke();
-
-  /*
-   * Small point at the exact data value.
-   * This makes it visually obvious that the curve
-   * reaches the real day's value.
-   */
-  ctx.beginPath();
-
-  ctx.arc(
-    x,
-    y,
-    3,
-    0,
-    Math.PI * 2
-  );
-
-  ctx.fillStyle = strokeColor;
-  ctx.fill();
-
-  } else {
-
-    // Multiple consecutive active days.
-    // Catmull-Rom -> cubic Bezier.
-
-    const coords = seg.map(p => ({
-      x: p.x,
-      y: p.y
-    }));
-
-    // Fill
-    ctx.beginPath();
-    ctx.moveTo(
-      coords[0].x,
-      coords[0].y
-    );
-
-    for (let i = 0; i < coords.length - 1; i++) {
-
-      const p0 =
-        i === 0
-          ? coords[0]
-          : coords[i - 1];
-
-      const p1 = coords[i];
-      const p2 = coords[i + 1];
-
-      const p3 =
-        i + 2 < coords.length
-          ? coords[i + 2]
-          : coords[coords.length - 1];
-
-      const cp1x =
-        p1.x + (p2.x - p0.x) / 6;
-
-      const cp1y =
-        p1.y + (p2.y - p0.y) / 6;
-
-      const cp2x =
-        p2.x - (p3.x - p1.x) / 6;
-
-      const cp2y =
-        p2.y - (p3.y - p1.y) / 6;
-
-      const ys = [
-        p0.y,
-        p1.y,
-        p2.y,
-        p3.y
-      ];
-
-      const minY = Math.min(...ys);
-      const maxY = Math.max(...ys);
-
-      const safeCp1y =
-        clamp(cp1y, minY, maxY);
-
-      const safeCp2y =
-        clamp(cp2y, minY, maxY);
-
-      ctx.bezierCurveTo(
-        cp1x,
-        safeCp1y,
-        cp2x,
-        safeCp2y,
-        p2.x,
-        p2.y
-      );
+      const fillColor = mode === 'income' ? 'rgba(53,169,104,0.12)' : 'rgba(239,107,112,0.08)';
+      ctx.fillStyle = fillColor;
+      ctx.fill();
     }
 
-    // Close fill to baseline
-    const firstX = coords[0].x;
-    const lastX =
-      coords[coords.length - 1].x;
-
-    ctx.lineTo(lastX, baseY);
-    ctx.lineTo(firstX, baseY);
-    ctx.closePath();
-
-    ctx.fillStyle = fillColor;
-    ctx.fill();
-
-    // Stroke curve
-    ctx.beginPath();
-
-    ctx.moveTo(
-      coords[0].x,
-      coords[0].y
-    );
-
-    for (let i = 0; i < coords.length - 1; i++) {
-
-      const p0 =
-        i === 0
-          ? coords[0]
-          : coords[i - 1];
-
-      const p1 = coords[i];
-      const p2 = coords[i + 1];
-
-      const p3 =
-        i + 2 < coords.length
-          ? coords[i + 2]
-          : coords[coords.length - 1];
-
-      const cp1x =
-        p1.x + (p2.x - p0.x) / 6;
-
-      const cp1y =
-        p1.y + (p2.y - p0.y) / 6;
-
-      const cp2x =
-        p2.x - (p3.x - p1.x) / 6;
-
-      const cp2y =
-        p2.y - (p3.y - p1.y) / 6;
-
-      const ys = [
-        p0.y,
-        p1.y,
-        p2.y,
-        p3.y
-      ];
-
-      const minY = Math.min(...ys);
-      const maxY = Math.max(...ys);
-
-      const safeCp1y =
-        clamp(cp1y, minY, maxY);
-
-      const safeCp2y =
-        clamp(cp2y, minY, maxY);
-
-      ctx.bezierCurveTo(
-        cp1x,
-        safeCp1y,
-        cp2x,
-        safeCp2y,
-        p2.x,
-        p2.y
-      );
+    // line
+    if (points.length) {
+      ctx.beginPath();
+      ctx.moveTo(points[0].x, points[0].y);
+      for (let i = 0; i < points.length - 1; i++) {
+        const xc = (points[i].x + points[i + 1].x) / 2;
+        const yc = (points[i].y + points[i + 1].y) / 2;
+        ctx.quadraticCurveTo(points[i].x, points[i].y, xc, yc);
+      }
+      const last = points[points.length - 1];
+      ctx.lineTo(last.x, last.y);
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = mode === 'income' ? 'rgba(53,169,104,1)' : 'rgba(239,107,112,1)';
+      ctx.stroke();
     }
-
-    ctx.strokeStyle = strokeColor;
-    ctx.stroke();
-  }
-}
 
     // x-axis labels: approx 7 ticks
     const ticks = Math.min(7, labels.length);
@@ -685,9 +360,9 @@ if (seg.length === 1) {
     const onResize = () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(resizeHandler, 120); };
 
     if (canvas._resizeListener) {
-  window.removeEventListener('resize', canvas._resizeListener);
-}
-    
+      window.removeEventListener('resize', canvas._resizeListener);
+    }
+
     window.addEventListener('resize', onResize);
 
     // store to allow cleanup if needed
