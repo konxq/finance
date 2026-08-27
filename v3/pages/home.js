@@ -97,7 +97,7 @@ const FinancebotHomePage = {
 
       <section class="card capital-card home-balance-card">
         <div class="capital-label">Баланс</div>
-        <div class="capital-value">${this.formatMoney(net)}<span class="capital-currency">PLN</span></div>
+        <div class="capital-value">${this.formatMoney(net)} <span class="capital-currency">PLN</span></div>
         <div class="capital-change">${net >= 0 ? 'Ваш баланс в плюсе' : 'Расходы превышают доходы'}</div>
         <div class="home-balance-card__decor"><span></span><span></span><span></span></div>
       </section>
